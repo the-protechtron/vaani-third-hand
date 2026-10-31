@@ -116,6 +116,12 @@ export function useChatTriggers(enabled: boolean) {
         if (p.selectable === false) continue
         const label = norm(p.label)
         if (label.length >= 4 && (` ${text} `).includes(` ${label} `)) hit.add(p.id)
+        if (p.aliases) {
+          for (const a of p.aliases) {
+            const an = norm(a)
+            if (an.length >= 3 && (` ${text} `).includes(` ${an} `)) hit.add(p.id)
+          }
+        }
       }
       for (const w of text.split(' ')) { const id = words.get(w); if (id) hit.add(id) }
       let n = 0

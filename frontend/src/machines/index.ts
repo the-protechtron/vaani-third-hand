@@ -23,6 +23,6 @@ export function resolveMachineId(raw: string): string | null {
   const k = (raw ?? '').toLowerCase()
   if (!k) return null
   if (/print|ender|fdm/.test(k)) return 'printer'
-  if (/scooter|bike|motorcycle|two.?wheeler|activa/.test(k)) return 'scooter'
+  if (/scooter|bike|motorcycle|two.?wheeler|activa|vespa|moped/.test(k)) return 'scooter'
   return MACHINE_IDS.find((id) => k.includes(id)) ?? null
 }

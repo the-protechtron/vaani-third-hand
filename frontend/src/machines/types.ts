@@ -31,6 +31,9 @@ export interface PartDef {
   /** GLB machines: the node name inside the .glb this part maps to. */
   meshName?: string
 
+  /** Synonyms or alternate phrases the user/LLM might say for this part. */
+  aliases?: string[]
+
   /** Primitive machines only. Resting position. */
   pos?: [number, number, number]
   /**
@@ -96,14 +99,21 @@ export function partPosition(p: PartDef, explode: number): [number, number, numb
 /** Tolerant lookup - the LLM will say "the nozzle" or "Nozzle" or "nozzle_04". */
 export function resolvePartId(machine: Machine, raw: string): string | null {
   if (!raw) return null
-  const k = raw.toLowerCase().trim().replace(/[\s-]+/g, '_')
+  const clean = (s: string) => s.toLowerCase().trim().replace(/[\s-]+/g, '_')
+  const k = clean(raw)
   const exact = machine.parts.find((p) => p.id === k && p.selectable !== false)
   if (exact) return exact.id
-  const hit = machine.parts.find(
-    (p) =>
-      p.selectable !== false &&
-      (k.includes(p.id) || p.id.includes(k) || p.label.toLowerCase().includes(k)),
-  )
+  const hit = machine.parts.find((p) => {
+    if (p.selectable === false) return false
+    const id = p.id.toLowerCase()
+    const label = clean(p.label)
+    if (k.includes(id) || id.includes(k) || k.includes(label) || label.includes(k)) return true
+    if (p.aliases?.some((a) => {
+      const an = clean(a)
+      return k.includes(an) || an.includes(k)
+    })) return true
+    return false
+  })
   return hit ? hit.id : null
 }
 

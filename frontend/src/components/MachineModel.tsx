@@ -202,6 +202,7 @@ function GlbModel({ machine }: { machine: Machine }) {
   useLayoutEffect(() => () => clearWorldPos(), [machine.id])
 
   const tmp = useRef(new THREE.Vector3())
+  const boxRef = useRef(new THREE.Box3())
 
   useFrame((state) => {
     const s = useScene.getState()
@@ -214,7 +215,13 @@ function GlbModel({ machine }: { machine: Machine }) {
         b.home.z + b.part.explode[2] * s.explode,
       )
       b.node.position.lerp(tmp.current, 0.12)
-      worldPos[b.part.id] = b.node.getWorldPosition(worldPos[b.part.id] ?? new THREE.Vector3())
+      const wp = worldPos[b.part.id] ?? (worldPos[b.part.id] = new THREE.Vector3())
+      boxRef.current.setFromObject(b.node)
+      if (!boxRef.current.isEmpty()) {
+        boxRef.current.getCenter(wp)
+      } else {
+        b.node.getWorldPosition(wp)
+      }
 
       const hl = s.highlights.find((h) => h.partId === b.part.id)
       const hovered = s.pointerPart === b.part.id && b.part.selectable !== false
