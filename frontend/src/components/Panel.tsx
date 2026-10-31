@@ -2,7 +2,7 @@ import { useEffect, useRef, type ReactNode } from 'react'
 import { motion } from 'motion/react'
 import { useScene } from '../store'
 import { partById } from '../machines'
-import type { WebSource } from '../voiceAgent'
+import type { Handoff, WebSource } from '../voiceAgent'
 import { useSession, inr } from '../session'
 import { HoverCardList } from './ui/hover-card-list'
 import { VoiceBars, type BarsState } from './ui/voice-bars'
@@ -50,10 +50,12 @@ const HINTS_PROC = ['"Next step"', '"Where is that part?"', '"How much is the re
 
 export function Panel({
   sources,
+  handoff,
   status = 'idle',
   sessionOn = false,
 }: {
   sources?: WebSource[]
+  handoff?: Handoff | null
   status?: 'idle' | 'listening' | 'thinking' | 'speaking'
   sessionOn?: boolean
 }) {
@@ -73,7 +75,7 @@ export function Panel({
   const recent = useProducts((x) => x.recent)
   const entries = useProducts((x) => x.entries)
   const shown = recent.map((k) => entries[k]).filter((e) => e && e.machine === machine.id)
-  const hasCards = !!(shown.length || (s && s.cart.length) || s?.report || (sources && sources.length))
+  const hasCards = !!(handoff || shown.length || (s && s.cart.length) || s?.report || (sources && sources.length))
   const last = transcript[transcript.length - 1]
   // user spoke last and the agent is not talking yet -> it is working on a reply
   const thinking = sessionOn && last?.role === 'user' && status !== 'speaking'
@@ -101,6 +103,15 @@ export function Panel({
       </div>
 
       <div className={cn('scroll-thin flex min-h-0 flex-col gap-3 overflow-y-auto pr-0.5', hasCards ? 'max-h-[42%]' : 'hidden')}>
+        {handoff && <Card title="Technician handoff">
+          {handoff.state === 'loading' && <p className="text-sm text-muted">Preparing the handoff…</p>}
+          {handoff.state === 'error' && <p role="alert" className="text-sm text-muted">{handoff.error}</p>}
+          {handoff.state === 'ready' && <>
+            <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{handoff.summary}</p>
+            <button className="mt-3 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-surface-2"
+              onClick={() => void navigator.clipboard.writeText(handoff.summary ?? '')}>Copy for technician</button>
+          </>}
+        </Card>}
         {s && s.cart.length > 0 && (
           <Card title="Parts ordered">
             <div className="flex flex-col gap-1.5 text-[13px]">

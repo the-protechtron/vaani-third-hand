@@ -41,6 +41,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 
 import lab
+import handoff
 
 load_dotenv()
 
@@ -91,6 +92,7 @@ LLM_MAX_TOKENS = 400     # spoken replies are short; a low cap = faster replies
 
 app = FastAPI(title="Third Hand")
 app.include_router(lab.router)
+app.include_router(handoff.router)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],          # hackathon setting. Tighten for anything real.

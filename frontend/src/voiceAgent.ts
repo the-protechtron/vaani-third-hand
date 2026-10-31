@@ -20,6 +20,7 @@ export interface WebSource {
   url: string
   snippet?: string
 }
+export type Handoff = { state: 'loading' | 'ready' | 'error'; summary?: string; error?: string }
 
 // Which conversation new lines belong to. The viva is a separate call with its own chat.
 let channel: 'tutor' | 'viva' = 'tutor'
@@ -101,6 +102,9 @@ async function speakReady(room: Room) {
 export function useVoiceAgent() {
   const [status, setStatus] = useState<VoiceStatus>('idle')
   const [sources, setSources] = useState<WebSource[]>([])
+  const [handoff, setHandoff] = useState<Handoff | null>(null)
+  const handoffRequested = useRef(false)
+  const sessionStarted = useRef(0)
   const roomRef = useRef<Room | null>(null)
   const wsRef = useRef<WebSocket | null>(null)
   const pollRef = useRef<number | null>(null)
@@ -126,6 +130,9 @@ export function useVoiceAgent() {
     channel = mode === 'viva' ? 'viva' : 'tutor'
     useScene.getState().reset()
     lastSeq.current = null
+    setHandoff(null)
+    handoffRequested.current = false
+    sessionStarted.current = Date.now()
 
     if (mode === 'repair') {
       const selected = useScene.getState().machine.id
@@ -181,6 +188,21 @@ export function useVoiceAgent() {
         else if (prev && prev.startsWith(text) && prev.length > text.length) out = prev
       }
       useScene.getState().upsert({ id, role, text: out, ts: Date.now(), ch: channel })
+      if (mode === 'repair' && useScene.getState().machine.id === 'scooter' && role === 'agent' && final &&
+          /professional help|professional service|see a mechanic|visit a mechanic|take .* to (a |the )?mechanic|service cent(re|er)/i.test(out) &&
+          !handoffRequested.current) {
+        const conversation = useScene.getState().transcript
+          .filter((line) => line.ts >= sessionStarted.current && line.role !== 'tool')
+          .map(({ role, text }) => ({ role, text }))
+        if (!conversation.some((line) => line.role === 'user')) return
+        handoffRequested.current = true
+        setHandoff({ state: 'loading' })
+        void fetch('/api/handoff', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ machine: 'scooter', conversation }) })
+          .then(async (r) => { if (!r.ok) throw new Error(r.status === 503 ? 'Add a Groq API key to enable handoffs.' : `Request failed (${r.status}).`); return r.json() })
+          .then((result) => setHandoff({ state: 'ready', summary: result.summary }))
+          .catch((error) => setHandoff({ state: 'error', error: String(error.message ?? error) }))
+      }
     }
 
     const room = new Room({ adaptiveStream: true })
@@ -279,5 +301,5 @@ export function useVoiceAgent() {
     setSources([])
   }, [teardown])
 
-  return { status, sources, beginSession, endSession }
+  return { status, sources, handoff, beginSession, endSession }
 }
