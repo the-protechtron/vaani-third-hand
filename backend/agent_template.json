@@ -1,708 +1,636 @@
 {
-    "display_name":  "Third Hand",
-    "greeting":  "Third Hand here. Which machine are you at, and what\u0027s it doing?",
-    "system_prompt":  "# Who you are\n\nYou are Third Hand, a repair assistant for industrial machines. You speak to a technician who is standing at the machine with their hands inside it. Their hands are busy and their eyes are on the hardware, not on you. You are their second pair of eyes and their memory. The technician also has a screen beside them showing a live 3D model of the machine. YOU CONTROL IT through your tools: get_procedure shows step 1 automatically, lookup_part focuses that part, and show_step moves the diagram to any later step. Never say there is no screen. When they ask you to show or point at something, do it with a tool (lookup_part for a part, show_step for a step), then say in one short sentence what is glowing, for example: the part now glowing orange. Never read part identifiers aloud.\n\n# Machines\n\nThree machines are supported:\n- printer: an Ender-3 class desktop FDM 3D printer\n- mri: a 1.5T superconducting MRI scanner\n- pump: an end-suction centrifugal pump and its motor\n\nWhen the technician names the machine, remember it and pass it as `machine` in every tool call. If you cannot tell which machine they mean, ask once, in four words.\n\n# How you speak\n\n- Short sentences. One instruction at a time.\n- At most three sentences per answer, fewer when you can.\n- Never read a list longer than three items. Break it up and confirm.\n- Never say part codes or identifiers out loud. Say \"the nozzle\", \"the silver ring\".\n- No filler. No \"great question\". Do not repeat back what they just said.\n- If they interrupt, stop at once and answer what they asked.\n- Reply in the language the technician uses: Hindi in, Hindi out; Tamil in, Tamil out; English in, English out; code-mixed in, code-mixed out. Keep it short in every language.\n\n# Your tools\n\n- get_procedure: the technician describes a fault. Call it with their exact words as `symptom`, plus `machine`. It returns a safety warning and numbered steps.\n- lookup_part: call it with `part_id` and `machine` when you need a part\u0027s price, torque, tool size, service interval or safety note.\n- order_part: orders a part. Call it ONLY after the technician says yes.\n- show_step: call it with step_number and machine for EVERY step after step 1, right before you speak that step, so the diagram follows your words.\n- set_view: call it with level (0 assembled, 1 fully exploded) whenever they ask to explode, open up, show inside or reassemble the machine. Add part_id to focus one part. Use 0.7 for a normal exploded view.\n- log_repair: records the finished job.\n- search_web and read_page: live web. Use them for recalls, \"has anyone else seen this\", or real-world prices. If a search fails, say so in one line and carry on with get_procedure.\n\n# Repair mode (the default)\n\n1. Let them describe the fault in their own words.\n2. Call get_procedure with their exact words as `symptom`.\n3. Read the safety_warning out loud FIRST, always. Do not skip it, shorten it or save it for later.\n4. Give ONE step, in one or two short sentences. Stop. Wait. For steps after step 1, call show_step first.\n5. Do not give the next step until they say this one is done, or that it did not work.\n6. If a step fixes it, go to the wrap-up.\n7. If the obvious fix fails, go one level deeper using the procedure\u0027s next steps. Never guess more than one step ahead.\n\n# Learn mode\n\nIf they say they are new, or ask you to walk them through the machine, or say \"teach me\" or \"explain this\", give a thirty-second mental model first. Printer: work from outside in. MRI: the shells peel off from the cover towards the magnet. Pump: follow the water, impeller first. Then go one part at a time. For each part say what it does and what it feels like when it fails, in two sentences. Call lookup_part for real service intervals and safety notes. Stop every three parts and ask if they want to go deeper.\n\n# Quiz mode\n\nIf they ask to be tested, or you have just finished a tour, offer a quick check. Describe a scenario and ask them to name the part that fails first. Wait. If they are right, say so in four words and ask the next one. If they are wrong, say what the right part is and, in one sentence, why the two get confused. Five questions maximum.\n\n# Parts and ordering\n\n- Quote torque figures, tool sizes and safety notes exactly as lookup_part returns them. A wrong torque damages the machine.\n- Some parts cannot be ordered from the field. order_part will refuse and give a reason. Pass that on plainly. Do not retry with a different quantity.\n- Before ordering, confirm the part and price and wait for a clear yes. After ordering, read back the order id and the ETA.\n\n# Interactive style\n\nBe conversational and proactive. After answering, offer one useful next move in a few words, for example: want me to explode the view, or pull up the replacement price? When a part is mentioned, call lookup_part so the price and details appear on their screen. If they ask what a part costs, give the price in rupees and the stock, from lookup_part only.\n\n# Wrapping up\n\nWhen the job is fixed, or they want to stop, call log_repair with a one-sentence summary, the root cause, the steps completed and the parts used. Then say the repair is logged, give the one habit that prevents this fault, and stop talking.\n\n# Safety\n\nYou are the one who remembers safety. Before any step involving heat, stored energy or the magnet, say the hazard out loud before the instruction.\n\nThree absolute rules:\n- Printer, thermal runaway fault: the first words out of your mouth are \"unplug it at the wall\", before anything else.\n- MRI: the magnet is ALWAYS on, even when the system is powered down. Every time you send someone into the magnet room, say so. For a quench, the first words are \"do not enter that room\". Helium displaces oxygen, and that is what kills people, not the cold.\n- Pump: before any step that opens the casing, say \"lock out the motor and shut both the suction and discharge valves\". A pump opened against a live line empties the system over the technician.\n\n# Honesty\n\nNever invent a part, price, torque value, service interval, safety note or step. If a tool did not give it to you, say \"I don\u0027t have that\" and give the safest general answer instead. Never invent a URL.\n",
-    "functions":  [
-                      {
-                          "function_name":  "read_page",
-                          "description":  "Fetches and returns the raw HTML content of a given web page.\n\nCall this function when the user asks to read or summarize a web page, retrieve the contents of a URL, or wants to know what is on a specific website.\n\nArgs:\n    url (string): The full URL of the web page to fetch. Must be a valid HTTP or HTTPS address.\n\nArgs:\n    url (string): ",
-                          "function_params":  {
-                                                  "type":  "object",
-                                                  "properties":  {
-                                                                     "url":  {
-                                                                                 "type":  "string",
-                                                                                 "description":  ""
-                                                                             }
-                                                                 },
-                                                  "required":  [
-                                                                   "url"
-                                                               ]
-                                              },
-                          "is_custom":  true,
-                          "agent_config":  {
-                                               "is_enabled":  true,
-                                               "params":  {
-                                                              "api_endpoint":  "{{BASE_URL}}/api/tools/read_page",
-                                                              "method":  "POST",
-                                                              "timeout_ms":  120000,
-                                                              "headers":  {
-                                                                              "X-Tool-Secret":  "{{TOOL_SECRET}}"
-                                                                          },
-                                                              "query_params":  {
-
-                                                                               },
-                                                              "store_variables":  {
-
-                                                                                  }
-                                                          }
-                                           }
-                      },
-                      {
-                          "function_name":  "search_web",
-                          "description":  "Search the web using the provided query.\n\nCall this function when the user asks to look up information, perform a web search, or requests details about a topic, such as \"find articles about centrifugal pump motor bearing replacement\" or \"search the internet for troubleshooting steps\".\n\nArgs:\n    query (str): The search phrase the user wants to look up. Must be a concise, natural-language string.\n\nArgs:\n    query (string): ",
-                          "function_params":  {
-                                                  "type":  "object",
-                                                  "properties":  {
-                                                                     "query":  {
-                                                                                   "type":  "string",
-                                                                                   "description":  ""
-                                                                               }
-                                                                 },
-                                                  "required":  [
-                                                                   "query"
-                                                               ]
-                                              },
-                          "is_custom":  true,
-                          "agent_config":  {
-                                               "is_enabled":  true,
-                                               "params":  {
-                                                              "api_endpoint":  "{{BASE_URL}}/api/tools/search_web",
-                                                              "method":  "POST",
-                                                              "timeout_ms":  120000,
-                                                              "headers":  {
-                                                                              "X-Tool-Secret":  "{{TOOL_SECRET}}"
-                                                                          },
-                                                              "query_params":  {
-
-                                                                               },
-                                                              "store_variables":  {
-
-                                                                                  }
-                                                          }
-                                           }
-                      },
-                      {
-                          "function_name":  "log_repair",
-                          "description":  "Logs a repair activity for a piece of equipment, storing details such as a brief summary, root cause, completed steps, parts used, and the overall outcome.\n\nCall this function when the user wants to record a maintenance or repair action, asks to document a recent fix, or provides details about equipment servicing. Typical user intents include statements like \"I replaced the pump motor\", \"Log the repair I just performed\", or \"Record the maintenance steps for the broken pump\". The AI Voice Agent should gather the required information from the conversation and invoke this tool to persist the repair log.\n\nArgs:\n    summary (string): A concise description of the repair performed.\n    root_cause (string): The underlying cause of the failure or issue.\n    steps_completed (array of strings): Ordered list of actions taken to complete the repair.\n    parts_used (array of strings): Names or identifiers of parts that were replaced or installed.\n    outcome (string): Result of the repair, e.g., \"resolved\", \"partial fix\", or any followÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂup needed.\n\nArgs:\n    summary (string): \n    root_cause (string): \n    steps_completed (array): \n    parts_used (array): \n    outcome (string): ",
-                          "function_params":  {
-                                                  "type":  "object",
-                                                  "properties":  {
-                                                                     "summary":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 },
-                                                                     "root_cause":  {
-                                                                                        "type":  "string",
-                                                                                        "description":  ""
-                                                                                    },
-                                                                     "steps_completed":  {
-                                                                                             "type":  "array",
-                                                                                             "description":  ""
-                                                                                         },
-                                                                     "parts_used":  {
-                                                                                        "type":  "array",
-                                                                                        "description":  ""
-                                                                                    },
-                                                                     "outcome":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 }
-                                                                 },
-                                                  "required":  [
-                                                                   "summary",
-                                                                   "root_cause",
-                                                                   "steps_completed",
-                                                                   "parts_used",
-                                                                   "outcome"
-                                                               ]
-                                              },
-                          "is_custom":  true,
-                          "agent_config":  {
-                                               "is_enabled":  true,
-                                               "params":  {
-                                                              "api_endpoint":  "{{BASE_URL}}/api/tools/log_repair",
-                                                              "method":  "POST",
-                                                              "timeout_ms":  120000,
-                                                              "headers":  {
-                                                                              "X-Tool-Secret":  "{{TOOL_SECRET}}"
-                                                                          },
-                                                              "query_params":  {
-
-                                                                               },
-                                                              "store_variables":  {
-
-                                                                                  }
-                                                          }
-                                           }
-                      },
-                      {
-                          "function_name":  "order_part",
-                          "description":  "Submit an order for a specific machine part to the manufacturing system.\n\nCall this function when the user wants to order a replacement part, asks to procure a part for a machine, or requests to place an order for a specific component (e.g., \"I need a pump motor\", \"Order a new pump part\", \"Can you get me a pump motor for the pump?\").\n\nArgs:\n    part_id (str): Identifier of the part to order, e.g., \"pump_motor\".\n    quantity (int): Number of units to order; must be a positive integer.\n    machine (str): Name or type of the machine that requires the part, e.g., \"pump\".\n\nArgs:\n    part_id (string): \n    quantity (number): \n    machine (string): ",
-                          "function_params":  {
-                                                  "type":  "object",
-                                                  "properties":  {
-                                                                     "part_id":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 },
-                                                                     "quantity":  {
-                                                                                      "type":  "number",
-                                                                                      "description":  ""
-                                                                                  },
-                                                                     "machine":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 }
-                                                                 },
-                                                  "required":  [
-                                                                   "part_id",
-                                                                   "quantity",
-                                                                   "machine"
-                                                               ]
-                                              },
-                          "is_custom":  true,
-                          "agent_config":  {
-                                               "is_enabled":  true,
-                                               "params":  {
-                                                              "api_endpoint":  "{{BASE_URL}}/api/tools/order_part",
-                                                              "method":  "POST",
-                                                              "timeout_ms":  120000,
-                                                              "headers":  {
-                                                                              "X-Tool-Secret":  "{{TOOL_SECRET}}"
-                                                                          },
-                                                              "query_params":  {
-
-                                                                               },
-                                                              "store_variables":  {
-
-                                                                                  }
-                                                          }
-                                           }
-                      },
-                      {
-                          "function_name":  "get_procedure",
-                          "description":  "Retrieve a detailed maintenance procedure based on a reported symptom and machine type.\n\nCall this function when the user describes an issue with equipment (e.g., \"my pump isn\u0027t building pressure\") and asks for the stepÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂbyÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂ¢ÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂÃÂstep repair or troubleshooting procedure. The agent should gather the symptom description and the specific machine involved before invoking this tool.\n\nArgs:\n    symptom (str): The exact symptom or problem description reported by the user (e.g., \"pump not building pressure\").\n    machine (str): The type or name of the machine experiencing the symptom (e.g., \"pump\").\n\nArgs:\n    symptom (string): \n    machine (string): ",
-                          "function_params":  {
-                                                  "type":  "object",
-                                                  "properties":  {
-                                                                     "symptom":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 },
-                                                                     "machine":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 }
-                                                                 },
-                                                  "required":  [
-                                                                   "symptom",
-                                                                   "machine"
-                                                               ]
-                                              },
-                          "is_custom":  true,
-                          "agent_config":  {
-                                               "is_enabled":  true,
-                                               "params":  {
-                                                              "api_endpoint":  "{{BASE_URL}}/api/tools/get_procedure",
-                                                              "method":  "POST",
-                                                              "timeout_ms":  120000,
-                                                              "headers":  {
-                                                                              "X-Tool-Secret":  "{{TOOL_SECRET}}"
-                                                                          },
-                                                              "query_params":  {
-
-                                                                               },
-                                                              "store_variables":  {
-
-                                                                                  }
-                                                          }
-                                           }
-                      },
-                      {
-                          "function_name":  "lookup_part",
-                          "description":  "Looks up detailed information for a specific part within a machine.\n\nCall this function when the user asks for specifications, compatibility, availability, or troubleshooting guidance for a particular part of a machine (e.g., \"What are the specs of the pump motor?\" or \"Can you give me details about the pump\u0027s motor part?\").\n\nArgs:\n    part_id (string): The unique identifier of the part to look up (e.g., \"pump_motor\").\n    machine (string): The name or type of the machine that the part belongs to (e.g., \"pump\").\n\nArgs:\n    part_id (string): \n    machine (string): ",
-                          "function_params":  {
-                                                  "type":  "object",
-                                                  "properties":  {
-                                                                     "part_id":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 },
-                                                                     "machine":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 }
-                                                                 },
-                                                  "required":  [
-                                                                   "part_id",
-                                                                   "machine"
-                                                               ]
-                                              },
-                          "is_custom":  true,
-                          "agent_config":  {
-                                               "is_enabled":  true,
-                                               "params":  {
-                                                              "api_endpoint":  "{{BASE_URL}}/api/tools/lookup_part",
-                                                              "method":  "POST",
-                                                              "timeout_ms":  120000,
-                                                              "headers":  {
-                                                                              "X-Tool-Secret":  "{{TOOL_SECRET}}"
-                                                                          },
-                                                              "query_params":  {
-
-                                                                               },
-                                                              "store_variables":  {
-
-                                                                                  }
-                                                          }
-                                           }
-                      },
-                      {
-                          "function_name":  "show_step",
-                          "description":  "Moves the technician\u0027s on-screen 3D diagram to a step of the active repair procedure: it focuses and highlights that step\u0027s part and shows the step card.\n\nCall this for EVERY step after step 1, right before you speak that step. Step 1 is shown automatically by get_procedure.\n\nArgs:\n    step_number (number): The 1-based step number to show.\n    machine (string): The machine, e.g. printer, mri or pump.",
-                          "function_params":  {
-                                                  "properties":  {
-                                                                     "step_number":  {
-                                                                                         "type":  "number",
-                                                                                         "description":  ""
-                                                                                     },
-                                                                     "machine":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 }
-                                                                 },
-                                                  "type":  "object",
-                                                  "required":  [
-                                                                   "step_number"
-                                                               ]
-                                              },
-                          "is_custom":  true,
-                          "agent_config":  {
-                                               "is_enabled":  true,
-                                               "params":  {
-                                                              "api_endpoint":  "{{BASE_URL}}/api/tools/show_step",
-                                                              "method":  "POST",
-                                                              "timeout_ms":  120000,
-                                                              "headers":  {
-                                                                              "X-Tool-Secret":  "{{TOOL_SECRET}}"
-                                                                          },
-                                                              "query_params":  {
-
-                                                                               },
-                                                              "store_variables":  {
-
-                                                                                  }
-                                                          }
-                                           }
-                      },
-                      {
-                          "function_name":  "set_view",
-                          "description":  "Explodes or reassembles the technician\u0027s on-screen 3D model, and can focus one part.\n\nCall this when they say explode, open it up, show me inside, pull it apart, assemble it, or reset.\n\nArgs:\n    level (number): 0 = assembled, 1 = fully exploded. Use 0.7 for a normal exploded view.\n    part_id (string): Optional part to focus, e.g. nozzle.\n    machine (string): printer, mri or pump.",
-                          "function_params":  {
-                                                  "properties":  {
-                                                                     "level":  {
-                                                                                   "type":  "number",
-                                                                                   "description":  ""
-                                                                               },
-                                                                     "part_id":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 },
-                                                                     "machine":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 }
-                                                                 },
-                                                  "type":  "object",
-                                                  "required":  [
-                                                                   "level"
-                                                               ]
-                                              },
-                          "is_custom":  true,
-                          "agent_config":  {
-                                               "is_enabled":  true,
-                                               "params":  {
-                                                              "api_endpoint":  "{{BASE_URL}}/api/tools/set_view",
-                                                              "method":  "POST",
-                                                              "timeout_ms":  120000,
-                                                              "headers":  {
-                                                                              "X-Tool-Secret":  "{{TOOL_SECRET}}"
-                                                                          },
-                                                              "query_params":  {
-
-                                                                               },
-                                                              "store_variables":  {
-
-                                                                                  }
-                                                          }
-                                           }
-                      },
-                      {
-                          "function_name":  "lab_open_tab",
-                          "description":  "Opens a tab on the student\u0027s lab screen.\n\nArgs:\n    tab (string): one of learn, observe, calc, quiz, viva.\n    session (string): the SESSION CODE from your instructions. Always pass it.",
-                          "function_params":  {
-                                                  "properties":  {
-                                                                     "tab":  {
-                                                                                 "type":  "string",
-                                                                                 "description":  ""
-                                                                             },
-                                                                     "session":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 }
-                                                                 },
-                                                  "type":  "object",
-                                                  "required":  [
-                                                                   "tab"
-                                                               ]
-                                              },
-                          "is_custom":  true,
-                          "agent_config":  {
-                                               "is_enabled":  true,
-                                               "params":  {
-                                                              "api_endpoint":  "{{BASE_URL}}/api/tools/lab_open_tab",
-                                                              "method":  "POST",
-                                                              "timeout_ms":  60000,
-                                                              "headers":  {
-                                                                              "X-Tool-Secret":  "{{TOOL_SECRET}}"
-                                                                          },
-                                                              "query_params":  {
-
-                                                                               },
-                                                              "store_variables":  {
-
-                                                                                  }
-                                                          }
-                                           }
-                      },
-                      {
-                          "function_name":  "viva_ask",
-                          "description":  "Shows a NEW viva question on the student\u0027s Viva tab and opens it. Call it BEFORE you speak the question.\n\nArgs:\n    question (string): the question you wrote.\n    kind (string): point (student clicks the object on the 3D rig), highlight (part glows, student names it), explain, or calc.\n    part_id (string): required for point and highlight, e.g. nozzle.\n    expected (number): for calc, the correct numeric answer.\n    unit (string): unit of the calc answer.\n    tolerance (number): relative tolerance for calc, default 0.05.\n    options (array of strings): for kind mcq, 3 or 4 answer choices. The student answers by saying a letter or the choice.\n    key_points (array of strings): for explain, 2 to 4 short phrases the answer must cover.\n    session (string): the SESSION CODE from your instructions. Always pass it.",
-                          "function_params":  {
-                                                  "properties":  {
-                                                                     "part_id":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 },
-                                                                     "kind":  {
-                                                                                  "type":  "string",
-                                                                                  "description":  ""
-                                                                              },
-                                                                     "question":  {
-                                                                                      "type":  "string",
-                                                                                      "description":  ""
-                                                                                  },
-                                                                     "expected":  {
-                                                                                      "type":  "number",
-                                                                                      "description":  ""
-                                                                                  },
-                                                                     "tolerance":  {
-                                                                                       "type":  "number",
-                                                                                       "description":  ""
-                                                                                   },
-                                                                     "key_points":  {
-                                                                                        "type":  "array",
-                                                                                        "description":  ""
-                                                                                    },
-                                                                     "session":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 },
-                                                                     "unit":  {
-                                                                                  "type":  "string",
-                                                                                  "description":  ""
-                                                                              },
-                                                                     "options":  {
-                                                                                     "type":  "array",
-                                                                                     "description":  ""
-                                                                                 }
-                                                                 },
-                                                  "type":  "object",
-                                                  "required":  [
-                                                                   "question",
-                                                                   "kind"
-                                                               ]
-                                              },
-                          "is_custom":  true,
-                          "agent_config":  {
-                                               "is_enabled":  true,
-                                               "params":  {
-                                                              "api_endpoint":  "{{BASE_URL}}/api/tools/viva_ask",
-                                                              "method":  "POST",
-                                                              "timeout_ms":  60000,
-                                                              "headers":  {
-                                                                              "X-Tool-Secret":  "{{TOOL_SECRET}}"
-                                                                          },
-                                                              "query_params":  {
-
-                                                                               },
-                                                              "store_variables":  {
-
-                                                                                  }
-                                                          }
-                                           }
-                      },
-                      {
-                          "function_name":  "viva_wait",
-                          "description":  "Waits (up to 30 seconds) for the student to click the object on the 3D rig for a point question, then returns what they clicked and whether it was right. Call it right after you speak a point question.\n\nArgs:\n    seconds (number): how long to wait, default 30.\n    session (string): the SESSION CODE from your instructions. Always pass it.\n    question (string): the full text of the question you are asking, so the student sees it even if viva_ask was skipped.\n    part_id (string): the part the student must click.",
-                          "function_params":  {
-                                                  "properties":  {
-                                                                     "session":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 },
-                                                                     "seconds":  {
-                                                                                     "type":  "number",
-                                                                                     "description":  ""
-                                                                                 },
-                                                                     "question":  {
-                                                                                      "type":  "string",
-                                                                                      "description":  ""
-                                                                                  },
-                                                                     "part_id":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 }
-                                                                 },
-                                                  "type":  "object",
-                                                  "required":  [
-
-                                                               ]
-                                              },
-                          "is_custom":  true,
-                          "agent_config":  {
-                                               "is_enabled":  true,
-                                               "params":  {
-                                                              "api_endpoint":  "{{BASE_URL}}/api/tools/viva_wait",
-                                                              "method":  "POST",
-                                                              "timeout_ms":  60000,
-                                                              "headers":  {
-                                                                              "X-Tool-Secret":  "{{TOOL_SECRET}}"
-                                                                          },
-                                                              "query_params":  {
-
-                                                                               },
-                                                              "store_variables":  {
-
-                                                                                  }
-                                                          }
-                                           }
-                      },
-                      {
-                          "function_name":  "viva_check",
-                          "description":  "Returns the student\u0027s last click for the current point question without waiting.\n    session (string): the SESSION CODE from your instructions. Always pass it.",
-                          "function_params":  {
-                                                  "properties":  {
-                                                                     "session":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 }
-                                                                 },
-                                                  "type":  "object",
-                                                  "required":  [
-
-                                                               ]
-                                              },
-                          "is_custom":  true,
-                          "agent_config":  {
-                                               "is_enabled":  true,
-                                               "params":  {
-                                                              "api_endpoint":  "{{BASE_URL}}/api/tools/viva_check",
-                                                              "method":  "POST",
-                                                              "timeout_ms":  60000,
-                                                              "headers":  {
-                                                                              "X-Tool-Secret":  "{{TOOL_SECRET}}"
-                                                                          },
-                                                              "query_params":  {
-
-                                                                               },
-                                                              "store_variables":  {
-
-                                                                                  }
-                                                          }
-                                           }
-                      },
-                      {
-                          "function_name":  "viva_record",
-                          "description":  "Records a voice-answered viva question (explain or highlight, or a calc without a stored answer). For explain questions the server also checks the key points.\n\nArgs:\n    correct (boolean): your judgement.\n    student_answer (string): what they said, as close to word for word as you can.\n    model_answer (string): the correct answer.\n    feedback (string): one sentence of feedback.\n    session (string): the SESSION CODE from your instructions. Always pass it.\n    question (string): the full question text you asked.\n    kind (string): explain, highlight, calc or mcq.\n    part_id (string): the part, for highlight questions.",
-                          "function_params":  {
-                                                  "properties":  {
-                                                                     "student_answer":  {
-                                                                                            "type":  "string",
-                                                                                            "description":  ""
-                                                                                        },
-                                                                     "correct":  {
-                                                                                     "type":  "boolean",
-                                                                                     "description":  ""
-                                                                                 },
-                                                                     "feedback":  {
-                                                                                      "type":  "string",
-                                                                                      "description":  ""
-                                                                                  },
-                                                                     "model_answer":  {
-                                                                                          "type":  "string",
-                                                                                          "description":  ""
-                                                                                      },
-                                                                     "session":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 },
-                                                                     "question":  {
-                                                                                      "type":  "string",
-                                                                                      "description":  ""
-                                                                                  },
-                                                                     "part_id":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 },
-                                                                     "kind":  {
-                                                                                  "type":  "string",
-                                                                                  "description":  ""
-                                                                              }
-                                                                 },
-                                                  "type":  "object",
-                                                  "required":  [
-                                                                   "correct"
-                                                               ]
-                                              },
-                          "is_custom":  true,
-                          "agent_config":  {
-                                               "is_enabled":  true,
-                                               "params":  {
-                                                              "api_endpoint":  "{{BASE_URL}}/api/tools/viva_record",
-                                                              "method":  "POST",
-                                                              "timeout_ms":  60000,
-                                                              "headers":  {
-                                                                              "X-Tool-Secret":  "{{TOOL_SECRET}}"
-                                                                          },
-                                                              "query_params":  {
-
-                                                                               },
-                                                              "store_variables":  {
-
-                                                                                  }
-                                                          }
-                                           }
-                      },
-                      {
-                          "function_name":  "viva_answer_number",
-                          "description":  "Grades the student\u0027s spoken number for a calc question that had an expected answer. The server decides right or wrong.\n\nArgs:\n    value (number): the number the student said.\n    session (string): the SESSION CODE from your instructions. Always pass it.",
-                          "function_params":  {
-                                                  "properties":  {
-                                                                     "value":  {
-                                                                                   "type":  "number",
-                                                                                   "description":  ""
-                                                                               },
-                                                                     "session":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 }
-                                                                 },
-                                                  "type":  "object",
-                                                  "required":  [
-                                                                   "value"
-                                                               ]
-                                              },
-                          "is_custom":  true,
-                          "agent_config":  {
-                                               "is_enabled":  true,
-                                               "params":  {
-                                                              "api_endpoint":  "{{BASE_URL}}/api/tools/viva_answer_number",
-                                                              "method":  "POST",
-                                                              "timeout_ms":  60000,
-                                                              "headers":  {
-                                                                              "X-Tool-Secret":  "{{TOOL_SECRET}}"
-                                                                          },
-                                                              "query_params":  {
-
-                                                                               },
-                                                              "store_variables":  {
-
-                                                                                  }
-                                                          }
-                                           }
-                      },
-                      {
-                          "function_name":  "viva_finish",
-                          "description":  "Ends the viva, saves the attempt and shows the final score.\n\nArgs:\n    summary (string): a short summary of how they did and what to revise.\n    session (string): the SESSION CODE from your instructions. Always pass it.",
-                          "function_params":  {
-                                                  "properties":  {
-                                                                     "summary":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 },
-                                                                     "session":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 }
-                                                                 },
-                                                  "type":  "object",
-                                                  "required":  [
-
-                                                               ]
-                                              },
-                          "is_custom":  true,
-                          "agent_config":  {
-                                               "is_enabled":  true,
-                                               "params":  {
-                                                              "api_endpoint":  "{{BASE_URL}}/api/tools/viva_finish",
-                                                              "method":  "POST",
-                                                              "timeout_ms":  60000,
-                                                              "headers":  {
-                                                                              "X-Tool-Secret":  "{{TOOL_SECRET}}"
-                                                                          },
-                                                              "query_params":  {
-
-                                                                               },
-                                                              "store_variables":  {
-
-                                                                                  }
-                                                          }
-                                           }
-                      },
-                      {
-                          "function_name":  "lab_show",
-                          "description":  "Points at things on the student\u0027s 3D Pelton rig. Call it whenever you explain a part, BEFORE you speak.\n\nArgs:\n    part_id (string): part to make glow with a label and fly the camera to, e.g. nozzle, spear, runner, brake_drum, gauge_p1.\n    label (string): optional text for the label.\n    level (number): explode the rig, 0 = assembled, 1 = fully exploded, 0.7 is normal.\n    view (string): iso, front, side, top, nozzle, gauges, brake or venturi.\n    step (number): show procedure step 1 to 9.\n    session (string): the SESSION CODE from your instructions. Always pass it.",
-                          "function_params":  {
-                                                  "properties":  {
-                                                                     "part_id":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 },
-                                                                     "step":  {
-                                                                                  "type":  "number",
-                                                                                  "description":  ""
-                                                                              },
-                                                                     "label":  {
-                                                                                   "type":  "string",
-                                                                                   "description":  ""
-                                                                               },
-                                                                     "level":  {
-                                                                                   "type":  "number",
-                                                                                   "description":  ""
-                                                                               },
-                                                                     "view":  {
-                                                                                  "type":  "string",
-                                                                                  "description":  ""
-                                                                              },
-                                                                     "session":  {
-                                                                                     "type":  "string",
-                                                                                     "description":  ""
-                                                                                 }
-                                                                 },
-                                                  "type":  "object",
-                                                  "required":  [
-
-                                                               ]
-                                              },
-                          "is_custom":  true,
-                          "agent_config":  {
-                                               "is_enabled":  true,
-                                               "params":  {
-                                                              "api_endpoint":  "{{BASE_URL}}/api/tools/lab_show",
-                                                              "method":  "POST",
-                                                              "timeout_ms":  60000,
-                                                              "headers":  {
-                                                                              "X-Tool-Secret":  "{{TOOL_SECRET}}"
-                                                                          },
-                                                              "query_params":  {
-
-                                                                               },
-                                                              "store_variables":  {
-
-                                                                                  }
-                                                          }
-                                           }
-                      }
-                  ]
+  "display_name": "Third Hand",
+  "greeting": "Third Hand here. Which machine are you at, and what's it doing?",
+  "system_prompt": "# Who you are\n\nYou are Third Hand, a repair assistant for industrial machines. You speak to a technician who is standing at the machine with their hands inside it. Their hands are busy and their eyes are on the hardware, not on you. You are their second pair of eyes and their memory. The technician also has a screen beside them showing a live 3D model of the machine. YOU CONTROL IT through your tools: get_procedure shows step 1 automatically, lookup_part focuses that part, and show_step moves the diagram to any later step. Never say there is no screen. When they ask you to show or point at something, do it with a tool (lookup_part for a part, show_step for a step), then say in one short sentence what is glowing, for example: the part now glowing orange. Never read part identifiers aloud.\n\n# Machines\n\nTwo machines are supported:\n- printer: an Ender-3 class desktop FDM 3D printer\n- scooter: a 110 cc commuter scooter (DIY-safe owner checks)\n\nWhen the technician names the machine, remember it and pass it as `machine` in every tool call. If you cannot tell which machine they mean, ask once, in four words.\n\n# How you speak\n\n- Short sentences. One instruction at a time.\n- At most three sentences per answer, fewer when you can.\n- Never read a list longer than three items. Break it up and confirm.\n- Never say part codes or identifiers out loud. Say \"the nozzle\", \"the silver ring\".\n- No filler. No \"great question\". Do not repeat back what they just said.\n- If they interrupt, stop at once and answer what they asked.\n- Reply in the language the technician uses: Hindi in, Hindi out; Tamil in, Tamil out; English in, English out; code-mixed in, code-mixed out. Keep it short in every language.\n\n# Your tools\n\n- get_procedure: the technician describes a fault. Call it with their exact words as `symptom`, plus `machine`. It returns a safety warning and numbered steps.\n- lookup_part: call it with `part_id` and `machine` when you need a part's price, torque, tool size, service interval or safety note.\n- order_part: orders a part. Call it ONLY after the technician says yes.\n- show_step: call it with step_number and machine for EVERY step after step 1, right before you speak that step, so the diagram follows your words.\n- set_view: call it with level (0 assembled, 1 fully exploded) whenever they ask to explode, open up, show inside or reassemble the machine. Add part_id to focus one part. Use 0.7 for a normal exploded view.\n- log_repair: records the finished job.\n- search_web and read_page: live web. Use them for recalls, \"has anyone else seen this\", or real-world prices. If a search fails, say so in one line and carry on with get_procedure.\n\n# Repair mode (the default)\n\n1. Let them describe the fault in their own words.\n2. Call get_procedure with their exact words as `symptom`.\n3. Read the safety_warning out loud FIRST, always. Do not skip it, shorten it or save it for later.\n4. Give ONE step, in one or two short sentences. Stop. Wait. For steps after step 1, call show_step first.\n5. Do not give the next step until they say this one is done, or that it did not work.\n6. If a step fixes it, go to the wrap-up.\n7. If the obvious fix fails, go one level deeper using the procedure's next steps. Never guess more than one step ahead.\n\n# Learn mode\n\nIf they say they are new, or ask you to walk them through the machine, or say \"teach me\" or \"explain this\", give a thirty-second mental model first. Printer: work from outside in (frame, motion, extrusion). Scooter: explain controls, underseat power, powertrain, and rolling chassis. Then go one part at a time. For each part say what it does and what it feels like when it fails, in two sentences. Call lookup_part for real service intervals and safety notes. Stop every three parts and ask if they want to go deeper.\n\n# Quiz mode\n\nIf they ask to be tested, or you have just finished a tour, offer a quick check. Describe a scenario and ask them to name the part that fails first. Wait. If they are right, say so in four words and ask the next one. If they are wrong, say what the right part is and, in one sentence, why the two get confused. Five questions maximum.\n\n# Parts and ordering\n\n- Quote torque figures, tool sizes and safety notes exactly as lookup_part returns them. A wrong torque damages the machine.\n- Some parts cannot be ordered from the field. order_part will refuse and give a reason. Pass that on plainly. Do not retry with a different quantity.\n- Before ordering, confirm the part and price and wait for a clear yes. After ordering, read back the order id and the ETA.\n\n# Interactive style\n\nBe conversational and proactive. After answering, offer one useful next move in a few words, for example: want me to explode the view, or pull up the replacement price? When a part is mentioned, call lookup_part so the price and details appear on their screen. If they ask what a part costs, give the price in rupees and the stock, from lookup_part only.\n\n# Wrapping up\n\nWhen the job is fixed, or they want to stop, call log_repair with a one-sentence summary, the root cause, the steps completed and the parts used. Then say the repair is logged, give the one habit that prevents this fault, and stop talking.\n\n# Safety\n\nYou are the one who remembers safety. Before any step involving heat, stored energy or the magnet, say the hazard out loud before the instruction.\n\nThree absolute rules:\n- Printer, thermal runaway fault: the first words out of your mouth are \"unplug it at the wall\", before anything else.\n- MRI: the magnet is ALWAYS on, even when the system is powered down. Every time you send someone into the magnet room, say so. For a quench, the first words are \"do not enter that room\". Helium displaces oxygen, and that is what kills people, not the cold.\n- Pump: before any step that opens the casing, say \"lock out the motor and shut both the suction and discharge valves\". A pump opened against a live line empties the system over the technician.\n\n# Honesty\n\nNever invent a part, price, torque value, service interval, safety note or step. If a tool did not give it to you, say \"I don't have that\" and give the safest general answer instead. Never invent a URL.\n",
+  "functions": [
+    {
+      "function_name": "read_page",
+      "description": "Fetches and returns the raw HTML content of a given web page.\n\nCall this function when the user asks to read or summarize a web page, retrieve the contents of a URL, or wants to know what is on a specific website.\n\nArgs:\n    url (string): The full URL of the web page to fetch. Must be a valid HTTP or HTTPS address.\n\nArgs:\n    url (string): ",
+      "function_params": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "is_custom": true,
+      "agent_config": {
+        "is_enabled": true,
+        "params": {
+          "api_endpoint": "{{BASE_URL}}/api/tools/read_page",
+          "method": "POST",
+          "timeout_ms": 120000,
+          "headers": {
+            "X-Tool-Secret": "{{TOOL_SECRET}}"
+          },
+          "query_params": {},
+          "store_variables": {}
+        }
+      }
+    },
+    {
+      "function_name": "search_web",
+      "description": "Search the web using the provided query.\n\nCall this function when the user asks to look up information, perform a web search, or requests details about a topic, such as \"find articles about centrifugal battery bearing replacement\" or \"search the internet for troubleshooting steps\".\n\nArgs:\n    query (str): The search phrase the user wants to look up. Must be a concise, natural-language string.\n\nArgs:\n    query (string): ",
+      "function_params": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "is_custom": true,
+      "agent_config": {
+        "is_enabled": true,
+        "params": {
+          "api_endpoint": "{{BASE_URL}}/api/tools/search_web",
+          "method": "POST",
+          "timeout_ms": 120000,
+          "headers": {
+            "X-Tool-Secret": "{{TOOL_SECRET}}"
+          },
+          "query_params": {},
+          "store_variables": {}
+        }
+      }
+    },
+    {
+      "function_name": "log_repair",
+      "description": "Logs a repair activity for a piece of equipment, storing details such as a brief summary, root cause, completed steps, parts used, and the overall outcome.\n\nCall this function when the user wants to record a maintenance or repair action, asks to document a recent fix, or provides details about equipment servicing. Typical user intents include statements like \"I replaced the battery\", \"Log the repair I just performed\", or \"Record the maintenance steps for the broken scooter\". The AI Voice Agent should gather the required information from the conversation and invoke this tool to persist the repair log.\n\nArgs:\n    summary (string): A concise description of the repair performed.\n    root_cause (string): The underlying cause of the failure or issue.\n    steps_completed (array of strings): Ordered list of actions taken to complete the repair.\n    parts_used (array of strings): Names or identifiers of parts that were replaced or installed.\n    outcome (string): Result of the repair, e.g., \"resolved\", \"partial fix\", or any follow\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u00a2\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0080\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0091up needed.\n\nArgs:\n    summary (string): \n    root_cause (string): \n    steps_completed (array): \n    parts_used (array): \n    outcome (string): ",
+      "function_params": {
+        "type": "object",
+        "properties": {
+          "summary": {
+            "type": "string",
+            "description": ""
+          },
+          "root_cause": {
+            "type": "string",
+            "description": ""
+          },
+          "steps_completed": {
+            "type": "array",
+            "description": ""
+          },
+          "parts_used": {
+            "type": "array",
+            "description": ""
+          },
+          "outcome": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "required": [
+          "summary",
+          "root_cause",
+          "steps_completed",
+          "parts_used",
+          "outcome"
+        ]
+      },
+      "is_custom": true,
+      "agent_config": {
+        "is_enabled": true,
+        "params": {
+          "api_endpoint": "{{BASE_URL}}/api/tools/log_repair",
+          "method": "POST",
+          "timeout_ms": 120000,
+          "headers": {
+            "X-Tool-Secret": "{{TOOL_SECRET}}"
+          },
+          "query_params": {},
+          "store_variables": {}
+        }
+      }
+    },
+    {
+      "function_name": "order_part",
+      "description": "Submit an order for a specific machine part to the manufacturing system.\n\nCall this function when the user wants to order a replacement part, asks to procure a part for a machine, or requests to place an order for a specific component (e.g., \"I need a battery\", \"Order a new pump part\", \"Can you get me a battery for the pump?\").\n\nArgs:\n    part_id (str): Identifier of the part to order, e.g., \"battery\".\n    quantity (int): Number of units to order; must be a positive integer.\n    machine (str): Name or type of the machine that requires the part, e.g., \"scooter\".\n\nArgs:\n    part_id (string): \n    quantity (number): \n    machine (string): ",
+      "function_params": {
+        "type": "object",
+        "properties": {
+          "part_id": {
+            "type": "string",
+            "description": ""
+          },
+          "quantity": {
+            "type": "number",
+            "description": ""
+          },
+          "machine": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "required": [
+          "part_id",
+          "quantity",
+          "machine"
+        ]
+      },
+      "is_custom": true,
+      "agent_config": {
+        "is_enabled": true,
+        "params": {
+          "api_endpoint": "{{BASE_URL}}/api/tools/order_part",
+          "method": "POST",
+          "timeout_ms": 120000,
+          "headers": {
+            "X-Tool-Secret": "{{TOOL_SECRET}}"
+          },
+          "query_params": {},
+          "store_variables": {}
+        }
+      }
+    },
+    {
+      "function_name": "get_procedure",
+      "description": "Retrieve a detailed maintenance procedure based on a reported symptom and machine type.\n\nCall this function when the user describes an issue with equipment (e.g., \"my scooter won't start\") and asks for the step\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u00a2\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0080\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0091by\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u00a2\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0080\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0083\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0083\u00c3\u0082\u00c2\u0082\u00c3\u0083\u00c2\u0082\u00c3\u0082\u00c2\u0091step repair or troubleshooting procedure. The agent should gather the symptom description and the specific machine involved before invoking this tool.\n\nArgs:\n    symptom (str): The exact symptom or problem description reported by the user (e.g., \"scooter won't start\").\n    machine (str): The type or name of the machine experiencing the symptom (e.g., \"scooter\").\n\nArgs:\n    symptom (string): \n    machine (string): ",
+      "function_params": {
+        "type": "object",
+        "properties": {
+          "symptom": {
+            "type": "string",
+            "description": ""
+          },
+          "machine": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "required": [
+          "symptom",
+          "machine"
+        ]
+      },
+      "is_custom": true,
+      "agent_config": {
+        "is_enabled": true,
+        "params": {
+          "api_endpoint": "{{BASE_URL}}/api/tools/get_procedure",
+          "method": "POST",
+          "timeout_ms": 120000,
+          "headers": {
+            "X-Tool-Secret": "{{TOOL_SECRET}}"
+          },
+          "query_params": {},
+          "store_variables": {}
+        }
+      }
+    },
+    {
+      "function_name": "lookup_part",
+      "description": "Looks up detailed information for a specific part within a machine.\n\nCall this function when the user asks for specifications, compatibility, availability, or troubleshooting guidance for a particular part of a machine (e.g., \"What are the specs of the battery?\" or \"Can you give me details about the pump's motor part?\").\n\nArgs:\n    part_id (string): The unique identifier of the part to look up (e.g., \"battery\").\n    machine (string): The name or type of the machine that the part belongs to (e.g., \"scooter\").\n\nArgs:\n    part_id (string): \n    machine (string): ",
+      "function_params": {
+        "type": "object",
+        "properties": {
+          "part_id": {
+            "type": "string",
+            "description": ""
+          },
+          "machine": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "required": [
+          "part_id",
+          "machine"
+        ]
+      },
+      "is_custom": true,
+      "agent_config": {
+        "is_enabled": true,
+        "params": {
+          "api_endpoint": "{{BASE_URL}}/api/tools/lookup_part",
+          "method": "POST",
+          "timeout_ms": 120000,
+          "headers": {
+            "X-Tool-Secret": "{{TOOL_SECRET}}"
+          },
+          "query_params": {},
+          "store_variables": {}
+        }
+      }
+    },
+    {
+      "function_name": "show_step",
+      "description": "Moves the technician's on-screen 3D diagram to a step of the active repair procedure: it focuses and highlights that step's part and shows the step card.\n\nCall this for EVERY step after step 1, right before you speak that step. Step 1 is shown automatically by get_procedure.\n\nArgs:\n    step_number (number): The 1-based step number to show.\n    machine (string): The machine, e.g. printer or scooter.",
+      "function_params": {
+        "properties": {
+          "step_number": {
+            "type": "number",
+            "description": ""
+          },
+          "machine": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "step_number"
+        ]
+      },
+      "is_custom": true,
+      "agent_config": {
+        "is_enabled": true,
+        "params": {
+          "api_endpoint": "{{BASE_URL}}/api/tools/show_step",
+          "method": "POST",
+          "timeout_ms": 120000,
+          "headers": {
+            "X-Tool-Secret": "{{TOOL_SECRET}}"
+          },
+          "query_params": {},
+          "store_variables": {}
+        }
+      }
+    },
+    {
+      "function_name": "set_view",
+      "description": "Explodes or reassembles the technician's on-screen 3D model, and can focus one part.\n\nCall this when they say explode, open it up, show me inside, pull it apart, assemble it, or reset.\n\nArgs:\n    level (number): 0 = assembled, 1 = fully exploded. Use 0.7 for a normal exploded view.\n    part_id (string): Optional part to focus, e.g. nozzle.\n    machine (string): printer or scooter.",
+      "function_params": {
+        "properties": {
+          "level": {
+            "type": "number",
+            "description": ""
+          },
+          "part_id": {
+            "type": "string",
+            "description": ""
+          },
+          "machine": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "level"
+        ]
+      },
+      "is_custom": true,
+      "agent_config": {
+        "is_enabled": true,
+        "params": {
+          "api_endpoint": "{{BASE_URL}}/api/tools/set_view",
+          "method": "POST",
+          "timeout_ms": 120000,
+          "headers": {
+            "X-Tool-Secret": "{{TOOL_SECRET}}"
+          },
+          "query_params": {},
+          "store_variables": {}
+        }
+      }
+    },
+    {
+      "function_name": "lab_open_tab",
+      "description": "Opens a tab on the student's lab screen.\n\nArgs:\n    tab (string): one of learn, observe, calc, quiz, viva.\n    session (string): the SESSION CODE from your instructions. Always pass it.",
+      "function_params": {
+        "properties": {
+          "tab": {
+            "type": "string",
+            "description": ""
+          },
+          "session": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "tab"
+        ]
+      },
+      "is_custom": true,
+      "agent_config": {
+        "is_enabled": true,
+        "params": {
+          "api_endpoint": "{{BASE_URL}}/api/tools/lab_open_tab",
+          "method": "POST",
+          "timeout_ms": 60000,
+          "headers": {
+            "X-Tool-Secret": "{{TOOL_SECRET}}"
+          },
+          "query_params": {},
+          "store_variables": {}
+        }
+      }
+    },
+    {
+      "function_name": "viva_ask",
+      "description": "Shows a NEW viva question on the student's Viva tab and opens it. Call it BEFORE you speak the question.\n\nArgs:\n    question (string): the question you wrote.\n    kind (string): point (student clicks the object on the 3D rig), highlight (part glows, student names it), explain, or calc.\n    part_id (string): required for point and highlight, e.g. nozzle.\n    expected (number): for calc, the correct numeric answer.\n    unit (string): unit of the calc answer.\n    tolerance (number): relative tolerance for calc, default 0.05.\n    options (array of strings): for kind mcq, 3 or 4 answer choices. The student answers by saying a letter or the choice.\n    key_points (array of strings): for explain, 2 to 4 short phrases the answer must cover.\n    session (string): the SESSION CODE from your instructions. Always pass it.",
+      "function_params": {
+        "properties": {
+          "part_id": {
+            "type": "string",
+            "description": ""
+          },
+          "kind": {
+            "type": "string",
+            "description": ""
+          },
+          "question": {
+            "type": "string",
+            "description": ""
+          },
+          "expected": {
+            "type": "number",
+            "description": ""
+          },
+          "tolerance": {
+            "type": "number",
+            "description": ""
+          },
+          "key_points": {
+            "type": "array",
+            "description": ""
+          },
+          "session": {
+            "type": "string",
+            "description": ""
+          },
+          "unit": {
+            "type": "string",
+            "description": ""
+          },
+          "options": {
+            "type": "array",
+            "description": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "question",
+          "kind"
+        ]
+      },
+      "is_custom": true,
+      "agent_config": {
+        "is_enabled": true,
+        "params": {
+          "api_endpoint": "{{BASE_URL}}/api/tools/viva_ask",
+          "method": "POST",
+          "timeout_ms": 60000,
+          "headers": {
+            "X-Tool-Secret": "{{TOOL_SECRET}}"
+          },
+          "query_params": {},
+          "store_variables": {}
+        }
+      }
+    },
+    {
+      "function_name": "viva_wait",
+      "description": "Waits (up to 30 seconds) for the student to click the object on the 3D rig for a point question, then returns what they clicked and whether it was right. Call it right after you speak a point question.\n\nArgs:\n    seconds (number): how long to wait, default 30.\n    session (string): the SESSION CODE from your instructions. Always pass it.\n    question (string): the full text of the question you are asking, so the student sees it even if viva_ask was skipped.\n    part_id (string): the part the student must click.",
+      "function_params": {
+        "properties": {
+          "session": {
+            "type": "string",
+            "description": ""
+          },
+          "seconds": {
+            "type": "number",
+            "description": ""
+          },
+          "question": {
+            "type": "string",
+            "description": ""
+          },
+          "part_id": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "type": "object",
+        "required": []
+      },
+      "is_custom": true,
+      "agent_config": {
+        "is_enabled": true,
+        "params": {
+          "api_endpoint": "{{BASE_URL}}/api/tools/viva_wait",
+          "method": "POST",
+          "timeout_ms": 60000,
+          "headers": {
+            "X-Tool-Secret": "{{TOOL_SECRET}}"
+          },
+          "query_params": {},
+          "store_variables": {}
+        }
+      }
+    },
+    {
+      "function_name": "viva_check",
+      "description": "Returns the student's last click for the current point question without waiting.\n    session (string): the SESSION CODE from your instructions. Always pass it.",
+      "function_params": {
+        "properties": {
+          "session": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "type": "object",
+        "required": []
+      },
+      "is_custom": true,
+      "agent_config": {
+        "is_enabled": true,
+        "params": {
+          "api_endpoint": "{{BASE_URL}}/api/tools/viva_check",
+          "method": "POST",
+          "timeout_ms": 60000,
+          "headers": {
+            "X-Tool-Secret": "{{TOOL_SECRET}}"
+          },
+          "query_params": {},
+          "store_variables": {}
+        }
+      }
+    },
+    {
+      "function_name": "viva_record",
+      "description": "Records a voice-answered viva question (explain or highlight, or a calc without a stored answer). For explain questions the server also checks the key points.\n\nArgs:\n    correct (boolean): your judgement.\n    student_answer (string): what they said, as close to word for word as you can.\n    model_answer (string): the correct answer.\n    feedback (string): one sentence of feedback.\n    session (string): the SESSION CODE from your instructions. Always pass it.\n    question (string): the full question text you asked.\n    kind (string): explain, highlight, calc or mcq.\n    part_id (string): the part, for highlight questions.",
+      "function_params": {
+        "properties": {
+          "student_answer": {
+            "type": "string",
+            "description": ""
+          },
+          "correct": {
+            "type": "boolean",
+            "description": ""
+          },
+          "feedback": {
+            "type": "string",
+            "description": ""
+          },
+          "model_answer": {
+            "type": "string",
+            "description": ""
+          },
+          "session": {
+            "type": "string",
+            "description": ""
+          },
+          "question": {
+            "type": "string",
+            "description": ""
+          },
+          "part_id": {
+            "type": "string",
+            "description": ""
+          },
+          "kind": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "correct"
+        ]
+      },
+      "is_custom": true,
+      "agent_config": {
+        "is_enabled": true,
+        "params": {
+          "api_endpoint": "{{BASE_URL}}/api/tools/viva_record",
+          "method": "POST",
+          "timeout_ms": 60000,
+          "headers": {
+            "X-Tool-Secret": "{{TOOL_SECRET}}"
+          },
+          "query_params": {},
+          "store_variables": {}
+        }
+      }
+    },
+    {
+      "function_name": "viva_answer_number",
+      "description": "Grades the student's spoken number for a calc question that had an expected answer. The server decides right or wrong.\n\nArgs:\n    value (number): the number the student said.\n    session (string): the SESSION CODE from your instructions. Always pass it.",
+      "function_params": {
+        "properties": {
+          "value": {
+            "type": "number",
+            "description": ""
+          },
+          "session": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "value"
+        ]
+      },
+      "is_custom": true,
+      "agent_config": {
+        "is_enabled": true,
+        "params": {
+          "api_endpoint": "{{BASE_URL}}/api/tools/viva_answer_number",
+          "method": "POST",
+          "timeout_ms": 60000,
+          "headers": {
+            "X-Tool-Secret": "{{TOOL_SECRET}}"
+          },
+          "query_params": {},
+          "store_variables": {}
+        }
+      }
+    },
+    {
+      "function_name": "viva_finish",
+      "description": "Ends the viva, saves the attempt and shows the final score.\n\nArgs:\n    summary (string): a short summary of how they did and what to revise.\n    session (string): the SESSION CODE from your instructions. Always pass it.",
+      "function_params": {
+        "properties": {
+          "summary": {
+            "type": "string",
+            "description": ""
+          },
+          "session": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "type": "object",
+        "required": []
+      },
+      "is_custom": true,
+      "agent_config": {
+        "is_enabled": true,
+        "params": {
+          "api_endpoint": "{{BASE_URL}}/api/tools/viva_finish",
+          "method": "POST",
+          "timeout_ms": 60000,
+          "headers": {
+            "X-Tool-Secret": "{{TOOL_SECRET}}"
+          },
+          "query_params": {},
+          "store_variables": {}
+        }
+      }
+    },
+    {
+      "function_name": "lab_show",
+      "description": "Points at things on the student's 3D Pelton rig. Call it whenever you explain a part, BEFORE you speak.\n\nArgs:\n    part_id (string): part to make glow with a label and fly the camera to, e.g. nozzle, spear, runner, brake_drum, gauge_p1.\n    label (string): optional text for the label.\n    level (number): explode the rig, 0 = assembled, 1 = fully exploded, 0.7 is normal.\n    view (string): iso, front, side, top, nozzle, gauges, brake or venturi.\n    step (number): show procedure step 1 to 9.\n    session (string): the SESSION CODE from your instructions. Always pass it.",
+      "function_params": {
+        "properties": {
+          "part_id": {
+            "type": "string",
+            "description": ""
+          },
+          "step": {
+            "type": "number",
+            "description": ""
+          },
+          "label": {
+            "type": "string",
+            "description": ""
+          },
+          "level": {
+            "type": "number",
+            "description": ""
+          },
+          "view": {
+            "type": "string",
+            "description": ""
+          },
+          "session": {
+            "type": "string",
+            "description": ""
+          }
+        },
+        "type": "object",
+        "required": []
+      },
+      "is_custom": true,
+      "agent_config": {
+        "is_enabled": true,
+        "params": {
+          "api_endpoint": "{{BASE_URL}}/api/tools/lab_show",
+          "method": "POST",
+          "timeout_ms": 60000,
+          "headers": {
+            "X-Tool-Secret": "{{TOOL_SECRET}}"
+          },
+          "query_params": {},
+          "store_variables": {}
+        }
+      }
+    }
+  ]
 }

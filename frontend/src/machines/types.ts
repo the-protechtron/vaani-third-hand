@@ -4,7 +4,7 @@
  * This is the only file that knows anything about geometry. Everything else in
  * the app - the agent, the tools, the camera, the highlight system - works
  * against these types and has no idea whether it is looking at a 3D printer,
- * an MRI scanner, or a GLB somebody dragged in ten minutes ago.
+ * a 3D printer, a commuter scooter, or an imported GLB model.
  *
  * A machine gets its shape one of two ways:
  *

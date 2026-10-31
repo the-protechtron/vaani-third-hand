@@ -65,7 +65,7 @@ try:
                                 "type": "string",
                                 "description": "What the technician described, in their own words",
                             },
-                            "machine": {"type": "string", "enum": ["printer", "mri", "pump"]},
+                            "machine": {"type": "string", "enum": ["printer", "scooter"]},
                         },
                         "required": ["symptom"],
                     },

@@ -11,8 +11,8 @@
  *     what stops it being a blind chatbot: when the user says "what's THIS?",
  *     get_user_pointer tells the agent exactly which part is under the cursor.
  *
- * Every tool is machine-aware. The same seven tools drive a 3D printer or an
- * MRI scanner - only the manifest under src/machines/ changes.
+ * Every tool is machine-aware. The same seven tools drive a 3D printer or a
+ * commuter scooter - only the manifest under src/machines/ changes.
  *
  * Tool names here MUST match the tool names in your ElevenLabs agent exactly.
  * They are case sensitive. See AGENT_SETUP.md.
@@ -162,10 +162,10 @@ export const clientTools = {
  * Prep-night affordance: drive the whole scene from the browser console
  * without burning ElevenLabs minutes.
  *
- *   __th.switch_machine({ machine: 'mri' })
+ *   __th.switch_machine({ machine: 'scooter' })
  *   __th.set_explode({ level: 0.7 })
- *   __th.focus_part({ part_id: 'gradient_coil', zoom: 1.4 })
- *   __th.highlight_part({ part_id: 'cold_head', label: 'listen for a knock' })
+ *   __th.focus_part({ part_id: 'battery', zoom: 1.4 })
+ *   __th.highlight_part({ part_id: 'battery', label: 'check terminals' })
  *   __th.get_user_pointer()
  */
 if (typeof window !== 'undefined') {

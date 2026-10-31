@@ -52,8 +52,6 @@ DATA = Path(__file__).parent / "data"
 # ---------------------------------------------------------------------------
 MACHINE_NAMES = {
     "printer": "Ender-3 class FDM printer",
-    "mri": "1.5T Superconducting MRI",
-    "pump": "End-Suction Centrifugal Pump",
     "scooter": "110 cc Commuter Scooter (DIY-safe checks)",
 }
 
@@ -186,15 +184,14 @@ not describe parts in words, you show them.
 
 # Machines
 
-Three machines are loaded:
+Two machines are loaded:
   - "printer" - an Ender-3 class desktop FDM 3D printer
-  - "mri"     - a 1.5T superconducting MRI scanner
-  - "pump"    - an end-suction centrifugal pump and its motor
+  - "scooter" - a 110 cc commuter scooter (owner DIY checks)
 
 The moment the technician mentions which machine they are on, call
 switch_machine. Its return value lists every part id available on that machine -
 read that list and use those ids for the rest of the session. Never guess a
-part id. Never use a printer part id while the scanner is on screen.
+part id. Never use a printer part id while the scooter is on screen.
 
 If you cannot tell which machine they mean, ask once, in four words.
 
@@ -237,9 +234,9 @@ If they say they are new to the machine, or ask you to walk them through it, or
 say "teach me" / "explain this" / "what am I looking at", switch to a tour:
 
 - Start assembled. set_explode 0. clear_scene.
-- Go outside-in or upstream-down, whichever suits the machine. On the scanner,
-  peel the shells from the cover inwards - that is the whole mental model of an
-  MRI in thirty seconds and it is the reason the 3D exists.
+- Go outside-in or subsystem-by-subsystem, whichever suits the machine. On the printer,
+  explain outside-in (frame, motion, extrusion). On the scooter, explain controls,
+  underseat power, powertrain, and rolling chassis.
 - For each part: set_explode, focus_part, highlight_part, then TWO sentences.
   What it does, and what it feels like when it fails. Nothing else.
 - Call lookup_part when you want the real service interval or safety note -
@@ -301,19 +298,14 @@ used. Then tell them the service record is on screen, and stop talking.
 # Safety
 
 You are the only one who remembers safety. Before any step involving heat,
-stored energy, or the magnet, say the hazard out loud before the instruction.
+high voltage, or mechanical pinch points, say the hazard out loud before the instruction.
 
-Three absolute rules:
+Two absolute rules:
 - On the printer, for a thermal runaway fault, the first words out of your
   mouth are "unplug it at the wall" - before the procedure title, before
   anything.
-- On the scanner, the magnet is ALWAYS on, even when the system is powered
-  down. Any time you send someone into the magnet room, say it. For a quench,
-  the first words are "do not enter that room" - helium displaces oxygen and
-  that is what kills people, not the cold.
-- On the pump, before any step that opens the casing, say lock out the motor
-  AND shut both the suction and discharge valves. A pump opened against a live
-  line empties the system over the technician.
+- On the scooter, park on level ground on the centre stand before inspection.
+  Never advise DIY work on brakes, steering, fuel leaks, or internal engine repairs.
 
 # Hard rules
 
@@ -367,7 +359,7 @@ BROWSER_SCHEMAS_A: List[Dict[str, Any]] = [
         "Put a different machine on screen. Call this the moment the technician "
         "mentions a machine that is not the one currently loaded. The response "
         "lists every part id on that machine - use only those ids afterwards.",
-        {"machine": {"type": "string", "description": "printer, mri or pump. Loose words like 'scanner' or 'Ender' also work."}},
+        {"machine": {"type": "string", "description": "printer or scooter. Loose words like 'bike' or 'Ender' also work."}},
         ["machine"],
     ),
     _fn(
@@ -394,8 +386,7 @@ BROWSER_SCHEMAS_A: List[Dict[str, Any]] = [
     _fn(
         "set_explode",
         "Pull the assembly apart so buried parts become visible. 0 = assembled, "
-        "1 = fully exploded. On the scanner this telescopes the seven concentric "
-        "shells apart - use it generously.",
+        "1 = fully exploded.",
         {"level": {"type": "number", "description": "0 to 1. Use the `explode` value from the current procedure step."}},
         ["level"],
     ),
@@ -451,7 +442,7 @@ SERVER_AND_WEB_SCHEMAS: List[Dict[str, Any]] = [
         "first, with the technician's own words.",
         {
             "symptom": {"type": "string", "description": "What the technician described, in their own words"},
-            "machine": {"type": "string", "enum": ["printer", "mri", "pump"], "description": "Omit to use what is on screen."},
+            "machine": {"type": "string", "enum": ["printer", "scooter"], "description": "Omit to use what is on screen."},
         },
         ["symptom"],
     ),
@@ -460,8 +451,8 @@ SERVER_AND_WEB_SCHEMAS: List[Dict[str, Any]] = [
         "Get price, stock, torque spec, required tool, safety note and service "
         "interval for a part.",
         {
-            "part_id": {"type": "string", "description": "Part identifier, e.g. nozzle, cold_head, chiller"},
-            "machine": {"type": "string", "enum": ["printer", "mri", "pump"], "description": "Omit to use what is on screen."},
+            "part_id": {"type": "string", "description": "Part identifier, e.g. nozzle, battery, fuse_box"},
+            "machine": {"type": "string", "enum": ["printer", "scooter"], "description": "Omit to use what is on screen."},
         },
         ["part_id"],
     ),
@@ -472,7 +463,7 @@ SERVER_AND_WEB_SCHEMAS: List[Dict[str, Any]] = [
         {
             "part_id": {"type": "string"},
             "quantity": {"type": "integer", "description": "Default 1"},
-            "machine": {"type": "string", "enum": ["printer", "mri", "pump"], "description": "Omit to use what is on screen."},
+            "machine": {"type": "string", "enum": ["printer", "scooter"], "description": "Omit to use what is on screen."},
         },
         ["part_id"],
     ),
@@ -705,7 +696,7 @@ _PRICE_RE = re.compile(r"(?:₹|Rs\.?|INR)\s?\d[\d,]*(?:\.\d+)?|\$\s?\d[\d,]*(?:
 
 
 # one short hint per machine, so "nozzle" means a 3D-printer nozzle and not a whole printer
-_MACHINE_HINT = {"printer": "Ender 3", "pump": "centrifugal pump", "mri": "MRI scanner", "scooter": "110cc scooter"}
+_MACHINE_HINT = {"printer": "Ender 3", "scooter": "110cc scooter"}
 
 
 def _part_words(name: str) -> List[str]:
@@ -1120,7 +1111,7 @@ async def tts(body: TtsIn) -> Dict[str, Any]:
 # --------------------------------------------------------------------------
 class SymptomIn(BaseModel):
     symptom: str = Field(..., description="What the technician described, in their own words")
-    machine: Optional[str] = Field(None, description="printer | mri | pump. Omit to use what is on screen.")
+    machine: Optional[str] = Field(None, description="printer | scooter. Omit to use what is on screen.")
 
 
 class PartIn(BaseModel):

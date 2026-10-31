@@ -17,11 +17,10 @@
 ## Quick Navigation
 
 - [The Core Innovation: The Closed Loop](#the-core-innovation-the-closed-loop)
-- [Four Operating Environments](#four-operating-environments)
+- [Three Operating Environments](#three-operating-environments)
   - [1. Desktop 3D Printer (Ender-3)](#1-desktop-3d-printer-ender-3-class)
-  - [2. 1.5T Superconducting MRI Scanner](#2-15t-superconducting-mri-scanner)
-  - [3. End-Suction Centrifugal Pump](#3-end-suction-centrifugal-pump)
-  - [4. Pelton Wheel Virtual Lab & Viva Simulator](#4-pelton-wheel-virtual-lab--viva-simulator)
+  - [2. 110 cc Commuter Scooter](#2-110-cc-commuter-scooter)
+  - [3. Pelton Wheel Virtual Lab & Viva Simulator](#3-pelton-wheel-virtual-lab--viva-simulator)
 - [Specialized Portals](#specialized-portals)
   - [Teacher Analytics Dashboard (`#teacher`)](#teacher-analytics-dashboard-teacher)
   - [3D CAD Labelling Studio (`#label`)](#3d-cad-labelling-studio-label)
@@ -76,24 +75,19 @@ Third Hand does not just speak — it manipulates and reads the 3D scene in real
 
 ---
 
-## Four Operating Environments
+## Three Operating Environments
 
 ### 1. Desktop 3D Printer (Ender-3 Class)
 - **13 Addressable Parts | 5 Verified Procedures**
 - Diagnostic coverage: Extruder skipping, hot-end clogs, bed levelling, PTFE tube degradation, stepper motor overheating.
 - Safety warnings prioritized: Auto-prompts for hot-end burn hazards and power isolation before mechanical disassemblies.
 
-### 2. 1.5T Superconducting MRI Scanner
-- **18 Addressable Parts | 5 Clinical Procedures**
-- Complex digital twin featuring **7 concentric telescoping shells** (outer gantry, vacuum jacket, radiation shield, cryostat, gradient coils, RF body coil, patient bore).
-- Safety-critical workflows: Liquid helium boil-off alarms, quench button protocols, gradient cooling loop inspections, RF coil seating.
+### 2. 110 cc Commuter Scooter
+- **9 Serviceable Components | 5 Owner-Safe Diagnostics**
+- Diagnostic coverage: Starting failure, dead battery, blown lighting fuse, soft/punctured tyre, low engine-oil level, and clogged air filter element.
+- **High-Fidelity Procedural 3D Twin:** Fully articulated step-through scooter with twin telescopic front forks, alloy rims with disc brake, aerodynamic apron, anti-slip floorboard, lift-up dual seat, underseat battery & fuse tray, CVT transmission casing, and tuned exhaust.
 
-### 3. End-Suction Centrifugal Pump
-- **16 Addressable Parts | 3 Industrial Procedures**
-- Diagnostic coverage: Cavitation damage, mechanical seal leakage, bearing degradation.
-- **Automated CAD Pipeline Proof:** Created entirely by importing a raw binary `.glb` model into our `#label` studio, filtering non-serviceable components, and generating production-ready scene code without manual 3D modeling.
-
-### 4. Pelton Wheel Virtual Lab & Viva Simulator
+### 3. Pelton Wheel Virtual Lab & Viva Simulator
 A full-featured virtual fluid mechanics laboratory designed for engineering students and lab instructors:
 - **Interactive 3D Pelton Rig:** Realistic water jet animation, spear valve adjustment, casing inspection, and friction brake dynamometer.
 - **Learn Tab:** Step-by-step 9-stage standard experimental procedure and theoretical background.
@@ -197,7 +191,7 @@ Third Hand equips the reasoning model (`vaani-105b-conversations`) with 16 dedic
 ### Browser Scene Tools (`frontend/src/clientTools.ts`)
 | Tool | Description |
 |---|---|
-| `switch_machine` | Hot-swaps the active 3D model (`printer`, `mri`, `pump`). |
+| `switch_machine` | Hot-swaps the active 3D model (`printer`, `scooter`). |
 | `set_explode` | Linearly drives the exploded view slider ($0.0 \to 1.0$). |
 | `focus_part` | Animates the camera to zoom and frame a target component. |
 | `highlight_part` | Applies an accent glow and callout billboard to a component while dimming others. |
@@ -343,16 +337,16 @@ You can test and manipulate the 3D scene directly from the browser developer con
 
 ```javascript
 // Switch machines
-__th.switch_machine({ machine: 'mri' })
+__th.switch_machine({ machine: 'scooter' })
 
 // Drive the explode animation (0.0 to 1.0)
 __th.set_explode({ level: 0.75 })
 
 // Fly camera to a specific part
-__th.focus_part({ part_id: 'gradient_coil', zoom: 0.8 })
+__th.focus_part({ part_id: 'battery', zoom: 1.2 })
 
 // Highlight with custom label
-__th.highlight_part({ part_id: 'chiller', label: 'Check fluid level' })
+__th.highlight_part({ part_id: 'battery', label: 'Check terminal voltage' })
 
 // Query current view coordinates and focused part
 __th.get_view_state()
@@ -394,9 +388,8 @@ Third Hand is designed with zero hardcoding in the core engine. To introduce a n
 vaani-third-hand/
 ├── backend/
 │   ├── data/                   # Parts manifests and repair procedures
-│   │   ├── mri/                # 1.5T MRI parts & procedure data
 │   │   ├── printer/            # Ender-3 3D printer parts & procedures
-│   │   └── pump/               # Centrifugal pump parts & procedures
+│   │   └── scooter/            # 110 cc commuter scooter parts & procedures
 │   ├── .env.example            # Environment variable template
 │   ├── agent_template.json     # Vaani voice agent blueprint & 16 tool schemas
 │   ├── lab.py                  # Pelton lab logic, viva grading & store
@@ -409,12 +402,12 @@ vaani-third-hand/
 ├── frontend/
 │   ├── public/
 │   │   ├── decoders/           # Offline Draco, Meshopt, and KTX2 decoders
-│   │   └── models/             # Binary GLB models (pump, rig assets)
+│   │   └── models/             # 3D models and test rig assets
 │   ├── src/
 │   │   ├── components/         # 3D Viewport, Camera Rig, Panel, Sidebar
 │   │   ├── label/              # 3D CAD Labelling Studio (accessible via #label)
 │   │   ├── lib/                # Panel splitters and utility helpers
-│   │   ├── machines/           # Machine definitions (printer, mri, pump)
+│   │   ├── machines/           # Machine definitions (printer, scooter)
 │   │   ├── pelton/             # Pelton Wheel Lab (Learn, Observe, Calc, Viva)
 │   │   │   ├── tabs/           # Lab tab views (CalcTab, VivaTab, ObserveTab...)
 │   │   │   ├── PeltonLab.tsx   # Master Pelton lab container

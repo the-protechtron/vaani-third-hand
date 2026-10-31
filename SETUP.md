@@ -2,7 +2,7 @@
 
 A voice agent that works with a live 3D model. It has four tabs:
 
-- **Ender-3 printer, MRI scanner, centrifugal pump**: a repair copilot. You describe a fault by voice, it walks you through the fix and points at parts on the 3D model. Parts you mention show live shop prices from the web.
+- **Ender-3 printer, 110 cc commuter scooter**: a repair copilot. You describe a fault by voice, it walks you through the fix and points at parts on the 3D model. Parts you mention show live shop prices from the web.
 - **Pelton Wheel**: a learning lab with a 3D rig, the 9-step procedure, an observation table, calculations and graphs, quizzes, a voice tutor, and a voice viva with five fresh questions (you can answer by clicking parts on the rig).
 
 Three programs run together on your machine: the **backend** (Python), the **frontend** (Node), and **ngrok** (a tunnel, so Vaani's servers can call your backend's tools).
