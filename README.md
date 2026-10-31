@@ -1,400 +1,441 @@
 # Third Hand
 
-**A voice agent that can see what you are looking at.**
+> **A multimodal voice agent that can see what you are looking at.**  
+> Hands-free industrial repair copilot, 3D digital twins, and virtual engineering laboratory powered by **Vaani Voice AI** and **Anakin.io**.
 
-You are elbow-deep in a machine. You cannot type, you cannot scroll a PDF, and
-the service manual is 180 pages. You say *"my extruder is clicking"* — and a
-technician's voice walks you through it while the 3D model on the bench screen
-explodes itself, spins to the part that matters, and lights it orange.
-
-Then you point at something and say *"what's this bit?"* — and it knows.
-
-Three machines ship with it: a **desktop 3D printer**, a **1.5T MRI scanner**,
-and a **centrifugal pump** that was imported from a `.glb` and labelled in about
-two minutes. Same agent, same fourteen tools, same code. Only the manifest changes.
-
-**Voice: Vaani's Indus stack** — Saaras v3 (ears), vaani-105b-conversations
-(brain), Bulbul v3 (voice). **Live web: Anakin.io** (search + scrape).
-
-> **New to the repo?** Read **[TEAM_SETUP.md](TEAM_SETUP.md)** first — accounts,
-> keys, the Indus Voice-Agent configuration, running the app, and the demo
-> script, all step by step.
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
+[![Node.js 18+](https://img.shields.io/badge/Node.js-18+-339933?style=flat-square&logo=node.js&logoColor=white)](https://nodejs.org)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![React 18](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
+[![Three.js / R3F](https://img.shields.io/badge/Three.js-R3F-black?style=flat-square&logo=three.js&logoColor=white)](https://threejs.org)
+[![LiveKit](https://img.shields.io/badge/LiveKit-WebRTC-blue?style=flat-square)](https://livekit.io)
+[![Vaani Voice AI](https://img.shields.io/badge/Voice%20AI-Vaani%20Indus-FF6B00?style=flat-square)](https://vaani.dev)
+[![Anakin.io](https://img.shields.io/badge/Live%20Web-Anakin.io-8A2BE2?style=flat-square)](https://anakin.io)
 
 ---
 
-## The problem
+## Quick Navigation
 
-Someone is standing at a broken machine. The knowledge they need exists — it's
-in a 180-page PDF, a 22-minute video, or a senior colleague's head. All three
-are unreachable **because their hands and eyes are busy.** The PDF can't be
-scrolled with greasy hands. The video can't be scrubbed to minute 14. The
-colleague is on another site, and even on the phone they can't see what you see.
-
-That is an interface problem, which is why a voice agent is the right shape of
-answer — and why the answer needs a screen it can drive.
-
-The 3D model is not standing in for the real machine. No service software shows
-you your literal machine; every OEM parts catalogue is an exploded diagram. The
-difference here is that **you never have to put your tools down to operate it.**
+- [The Core Innovation: The Closed Loop](#the-core-innovation-the-closed-loop)
+- [Four Operating Environments](#four-operating-environments)
+  - [1. Desktop 3D Printer (Ender-3)](#1-desktop-3d-printer-ender-3-class)
+  - [2. 1.5T Superconducting MRI Scanner](#2-15t-superconducting-mri-scanner)
+  - [3. End-Suction Centrifugal Pump](#3-end-suction-centrifugal-pump)
+  - [4. Pelton Wheel Virtual Lab & Viva Simulator](#4-pelton-wheel-virtual-lab--viva-simulator)
+- [Specialized Portals](#specialized-portals)
+  - [Teacher Analytics Dashboard (`#teacher`)](#teacher-analytics-dashboard-teacher)
+  - [3D CAD Labelling Studio (`#label`)](#3d-cad-labelling-studio-label)
+- [System Architecture](#system-architecture)
+- [The 16-Tool Ecosystem](#the-16-tool-ecosystem)
+- [Live Web & Parts Pricing (Anakin.io)](#live-web--parts-pricing-anakinio)
+- [Quickstart & Setup](#quickstart--setup)
+- [Environment Variables](#environment-variables)
+- [Interactive Scene Driving via Console (`window.__th`)](#interactive-scene-driving-via-console-window__th)
+- [Adding New Machines](#adding-new-machines)
+- [Troubleshooting](#troubleshooting)
+- [Repository Layout](#repository-layout)
 
 ---
 
-## Why this one wins the room
+## The Problem
 
-Every other team at a voice hackathon ships a talking head. Audio in, audio out,
-maybe a transcript. The audience has seen that.
+A technician is elbow-deep inside a malfunctioning machine. Their hands are covered in grease, and their eyes are locked on the hardware. 
 
-Third Hand has a **closed loop**:
+The information needed to solve the fault exists — in a 180-page PDF manual, a 20-minute video, or in a senior specialist's memory:
+- **PDFs cannot be scrolled** with greasy hands or while holding a multimeter.
+- **Videos cannot be scrubbed** to the exact minute without breaking workflow.
+- **Remote calls fail** because a remote colleague cannot see the exact part being inspected.
+
+Voice alone is not enough if the agent is blind. Standard voice bots are disembodied talking heads. **Third Hand solves this by pairing speech-first interaction with an interactive 3D digital twin that shares visual context with the user.**
+
+---
+
+## The Core Innovation: The Closed Loop
+
+Third Hand does not just speak — it manipulates and reads the 3D scene in real time:
 
 ```
-        agent  ──── focus / highlight / explode / step ────►  3D viewport
-          ▲                                                        │
-          └──────── get_user_pointer / get_view_state ◄────────────┘
+                  ┌──────────────────────────────────────────────┐
+                  │             Vaani Voice Agent                │
+                  │   Saaras v3 (STT) ──► vaani-105b ──► Bulbul  │
+                  └───────────────▲───────────────┬──────────────┘
+                                  │               │
+  get_user_pointer                │               │  focus_part / highlight_part
+  get_view_state (Reads Context)  │               │  set_explode / show_step
+                                  │               │  (Manipulates Viewport)
+                                  │               ▼
+                  ┌───────────────┴──────────────────────────────┐
+                  │              3D Canvas & WebRTC              │
+                  │        (React Three Fiber / LiveKit)         │
+                  └──────────────────────────────────────────────┘
 ```
 
-Tools going *out* mean the agent changes what you are looking at **mid-sentence**.
-Tools coming *back* mean the agent is not blind — it can ask the screen what the
-human is pointing at before it answers. That second direction is the part nobody
-builds, and it is eight seconds of demo that makes people put their phone down.
+1. **Outgoing scene control:** The agent triggers visual actions (`set_explode`, `focus_part`, `highlight_part`, `show_step`) **mid-sentence**. The assembly expands and highlights the faulty component before the spoken explanation finishes playing.
+2. **Incoming visual perception:** The agent can poll what part the user's cursor or touch is hovering on (`get_user_pointer`). When a user asks *"what is this bit?"*, the agent inspects the 3D pointer and answers accurately without the user ever naming the component.
+3. **Multilingual by default:** Built on Vaani's speech stack, technicians can report faults in English, Hindi, or code-mixed Hinglish (*"मेरा एक्सट्रूडर क्लिक कर रहा है"*), receiving natural responses in their spoken language with zero intermediate translation latency.
 
 ---
 
-## It is not only for repair
+## Four Operating Environments
 
-The same rig does three jobs, and they share every tool:
+### 1. Desktop 3D Printer (Ender-3 Class)
+- **13 Addressable Parts | 5 Verified Procedures**
+- Diagnostic coverage: Extruder skipping, hot-end clogs, bed levelling, PTFE tube degradation, stepper motor overheating.
+- Safety warnings prioritized: Auto-prompts for hot-end burn hazards and power isolation before mechanical disassemblies.
 
-| Mode | What happens | Why the 3D matters |
+### 2. 1.5T Superconducting MRI Scanner
+- **18 Addressable Parts | 5 Clinical Procedures**
+- Complex digital twin featuring **7 concentric telescoping shells** (outer gantry, vacuum jacket, radiation shield, cryostat, gradient coils, RF body coil, patient bore).
+- Safety-critical workflows: Liquid helium boil-off alarms, quench button protocols, gradient cooling loop inspections, RF coil seating.
+
+### 3. End-Suction Centrifugal Pump
+- **16 Addressable Parts | 3 Industrial Procedures**
+- Diagnostic coverage: Cavitation damage, mechanical seal leakage, bearing degradation.
+- **Automated CAD Pipeline Proof:** Created entirely by importing a raw binary `.glb` model into our `#label` studio, filtering non-serviceable components, and generating production-ready scene code without manual 3D modeling.
+
+### 4. Pelton Wheel Virtual Lab & Viva Simulator
+A full-featured virtual fluid mechanics laboratory designed for engineering students and lab instructors:
+- **Interactive 3D Pelton Rig:** Realistic water jet animation, spear valve adjustment, casing inspection, and friction brake dynamometer.
+- **Learn Tab:** Step-by-step 9-stage standard experimental procedure and theoretical background.
+- **Observation Tab:** Dynamic data table tracking head ($H$), nozzle discharge ($Q$), rotational speed ($N$), and spring balance brake loads ($S_1, S_2$).
+- **Calculations & Graphing:** Real-time computation of water power ($P_{in}$), shaft power ($P_{out}$), and overall efficiency ($\eta$), accompanied by interactive performance curves.
+- **Quiz Mode:** Automated multiple-choice drills on impulse turbines.
+- **Spoken AI Tutor:** A hands-free conversational voice tutor explaining fluid principles, bucket splitters, and governing mechanisms.
+- **Oral Viva Voce Exam:** An automated voice examiner asking 5 dynamic oral questions. Students can answer verbally or by **clicking the exact part on the 3D rig** to demonstrate spatial and mechanical mastery.
+
+---
+
+## Specialized Portals
+
+### Teacher Analytics Dashboard (`#teacher`)
+Navigate to `http://localhost:5173/#teacher` to access the instructor portal:
+- Authenticated via the secret `TEACHER_KEY` set in `backend/.env`.
+- Live roster of all students who have attempted the Pelton Wheel laboratory and viva exam.
+- Detailed question-by-question scoring breakdown (audio answers vs. 3D part-click answers).
+- Exportable telemetry and one-click data reset for new class cohorts.
+
+### 3D CAD Labelling Studio (`#label`)
+Navigate to `http://localhost:5173/#label` to convert any standard 3D asset into an agent-ready digital twin:
+- **Zero-Install glTF/GLB Ingestion:** Drag and drop `.glb`, `.gltf`, or `.bin` files directly into the browser.
+- **Automated Hierarchical Parsing:** Extracts mesh IDs, normalizes scale, and establishes ground-plane framing.
+- **Nesting-Aware Explode Computation:** Standard centroid explode formulas fail on nested assemblies (e.g. an impeller inside a casing). The studio counts enclosing bounding boxes so internal components receive additional travel distance, ensuring complete visibility when exploded.
+- **Bundled Offline Decoders:** Pre-packaged with Draco, Meshopt, and KTX2 decoders in `public/decoders/` for venue-safe reliability without external CDN calls.
+- **One-Click Code Export:** Produces TypeScript component code and JSON manifest boilerplate ready to drop into `frontend/src/machines/` and `backend/data/`.
+
+---
+
+## System Architecture
+
+```
+                                  USER (Browser)
+                      Mic / Speakers / WebGL / LiveKit WebRTC
+                                       │
+                      ┌────────────────┴────────────────┐
+                      │    React 18 + Vite (Port 5173)   │
+                      │  - Three.js / React Three Fiber │
+                      │  - Zustand State Store          │
+                      │  - 8 Browser Scene Tools        │
+                      └────────────────┬────────────────┘
+                                       │ /api proxy
+                                       ▼
+                       FastAPI Server (Port 8765)
+          ┌─────────────────────────────────────────────────────────┐
+          │  main.py & lab.py                                       │
+          │  - Speech Session Controller (/api/vaani/session)       │
+          │  - Fallback Audio Pipeline (/api/stt, /api/agent/turn)  │
+          │  - 16 Server Tool Endpoints (/api/tools/*)              │
+          │  - Local Data Stores (data/ & lab_store.json)          │
+          └────────────┬───────────────────────────────┬────────────┘
+                       │                               │
+       Incoming Tool Webhooks                   Live Search Queries
+         via ngrok Tunnel                       & Scraping Calls
+                       │                               │
+                       ▼                               ▼
+            Vaani Cloud Platform                   Anakin.io
+      ┌─────────────────────────────┐    ┌───────────────────────────┐
+      │  - Saaras v3 (STT)          │    │  - Real-Time Search API   │
+      │  - vaani-105b Reasoning     │    │  - Page Crawler / Scraper │
+      │  - Bulbul v3 (TTS)          │    │  - Live Part Price Feed   │
+      │  - WebRTC Room / LiveKit    │    └───────────────────────────┘
+      └─────────────────────────────┘
+```
+
+### Dual-Loop Operation
+1. **Primary WebRTC Voice Session:** The browser initiates a call with Vaani via `/api/vaani/session`. Audio streams full-duplex over WebRTC (LiveKit). Vaani dispatches tool calls through your public ngrok tunnel directly into `/api/tools/*`, and the frontend synchronizes 3D view states via WebSocket captions and telemetry polling.
+2. **Local Direct API Loop (Fallback):** The repository also supports a discrete turn-based loop (`POST /api/stt` $\to$ `POST /api/agent/turn` with NDJSON streaming $\to$ `POST /api/tts`), enabling local experimentation and smoke-testing without third-party dashboards.
+
+---
+
+## The 16-Tool Ecosystem
+
+Third Hand equips the reasoning model (`vaani-105b-conversations`) with 16 dedicated tools defined in `backend/agent_template.json` and `backend/main.py`:
+
+### Machine & Web Tools (8 Tools)
+| Tool | Target | Description |
 |---|---|---|
-| **Repair** | Fault → procedure → guided steps → parts → service record | Shows *which* screw |
-| **Learn** | "Walk me through this machine" → outside-in tour, two sentences per part | Peeling the seven shells off an MRI *is* the mental model |
-| **Quiz** | "Point at the part that fails when the chiller blocks" → `get_user_pointer` marks the answer | The answer is a gesture, not a multiple-choice box |
+| `get_procedure` | Server | Fetches official diagnostic and repair procedures for a machine symptom. |
+| `lookup_part` | Server | Retrieves part specifications, torque values, service intervals, and stock status. |
+| `order_part` | Server | Adds a replacement component to the active dispatch cart with an ETA. |
+| `log_repair` | Server | Generates an auditable digital service record containing root cause and steps taken. |
+| `search_web` | Anakin | Searches the live web for real-time market prices, forums, and recall notices. |
+| `read_page` | Anakin | Scrapes and summarizes product documentation or technical bulletin URLs. |
+| `set_view` | Browser | Adjusts camera angle, explode level, and focused component. |
+| `show_step` | Browser | Pins current repair step, safety note, and tool requirement on screen. |
 
-Learn mode is not a bolt-on. On an MRI you **cannot** practise on the hardware —
-it is multi-crore, it is in clinical use, and downtime is measured in cancelled
-patients. Digital-first is not a compromise there, it is the only option. And
-because the same agent then stands next to you in the field, a trainee learns on
-exactly the model they will later be guided through. That continuity is the
-pitch: **one voice, one model, one set of part names, from training to the job.**
-
----
-
-## Architecture
-
-```
-┌──────────────────────── browser ────────────────────────┐
-│  React + Vite                                            │
-│                                                          │
-│  voiceAgent.ts   talk (VAD) ──► record utterance         │
-│        │  CLIENT TOOLS (8, unchanged — the scene tools)  │
-│        ▼                                                 │
-│   zustand store ◄──── browser tools ──────┐              │
-│        ▼                                  │              │
-│   react-three-fiber viewport              │              │
-│   (camera rig, explode, glow, dim,        │              │
-│    callouts, pointer)                     │              │
-└───────────────────────────────────────────┼──────────────┘
-             │ POST /api/stt → /api/agent/turn → /api/tts  │
-             ▼                                            │
-┌──────────── FastAPI — the whole agent loop ─────────────┘
-│  /api/stt            utterance → saaras:v3 transcript    │
-│  /api/agent/turn     vaani-105b-conversations +         │
-│                      14 tools, tool-calling loop         │
-│  /api/tts            reply → bulbul:v3 → base64 WAV      │
-│  /api/tools/get_procedure   symptom → ordered steps      │
-│  /api/tools/lookup_part     specs, torque, safety, price │
-│  /api/tools/order_part      writes to the live cart      │
-│  /api/tools/log_repair      writes the service record    │
-│  /api/tools/search_web      Anakin live web search       │
-│  /api/tools/read_page       Anakin scrape any page       │
-│  /api/machine        which catalogue the tools read from │
-└──────────────────────────────────────────────────────────┘
-```
-
-**The split that matters.** Anything that changes *what you see* is a client tool
-(instant, runs in the browser, no round trip). Anything that is *truth about the
-world* — specs, stock, orders, records — is a server tool. Get this split wrong
-and the demo feels laggy; get it right and the scene moves while the agent is
-still mid-sentence.
-
----
-
-## Where the 3D actually comes from
-
-The printer and the scanner are hand-authored from primitives, because zero
-asset dependencies is the right call for a demo. That is not the real path.
-
-**The real input is not a 3D model. It is a labelled one.** An unlabelled mesh
-off Sketchfab is useless here — the agent needs a stable id per part that the
-renderer and the parts catalogue both agree on. A crude box model with 13
-correctly-named parts works perfectly; a beautiful 400k-triangle scan with no
-node names does not.
-
-That reframes the onboarding cost, because labelled assemblies already exist:
-
-| Where the model comes from | What you get | What a human still does |
+### Lab & Viva Voce Tools (8 Tools)
+| Tool | Target | Description |
 |---|---|---|
-| **CAD / STEP from the OEM** | Full assembly tree with real part numbers — it was built from a bill of materials | Almost nothing. Confirm which parts are serviceable. |
-| **Well-authored GLB** | Named meshes (`Pump_Casing`, `Impeller`) | Confirm ids, fix a few labels |
-| **Sloppy GLB** | `Mesh_001` … `Mesh_247` | Name the 20 that matter, ignore the rest |
-| **Photogrammetry scan** | One blob, no parts | Segmentation — this is the hard case |
+| `lab_open_tab` | Lab UI | Switches between Learn, Observe, Calculate, Quiz, Tutor, and Viva tabs. |
+| `lab_show` | Lab UI | Highlights relevant equations, data rows, or graphs during tutoring. |
+| `viva_ask` | Viva Engine | Issues an oral examination question to the student. |
+| `viva_wait` | Viva Engine | Signals the agent to pause and listen for the student's verbal or spatial response. |
+| `viva_check` | Viva Engine | Validates student verbal response against correct technical answers. |
+| `viva_record` | Viva Engine | Records score and telemetry for the current question into `lab_store.json`. |
+| `viva_answer_number`| Viva Engine | Submits a calculated numerical value during quantitative oral prompts. |
+| `viva_finish` | Viva Engine | Concludes the oral viva, tallies points, and emits the final grading report. |
 
-Two things make this tractable. First, **you never need every mesh** — you need
-the fifteen or thirty a technician would ever touch, and the OEM's parts
-catalogue already tells you exactly which those are. Second, **labelling is
-one-time per model, not per session**, so it amortises over thousands of
-service calls.
-
-### The labelling studio
-
-Run the app and go to **`#label`**. Drop in a `.glb`.
-
-```
-localhost:5173/#label
-```
-
-It reads the assembly tree out of the file and does the parts a human should
-not have to type:
-
-- **part ids and labels** from the node names (`Bearing_Housing` → `bearing_housing`, "Bearing Housing")
-- **explode vectors** from geometry — direction from the part's centroid
-  relative to the assembly, distance from its size *and its nesting depth*.
-  That last one matters: a naive centroid explode fails on any nested assembly,
-  because an impeller sitting inside a casing shares its centre and the two fly
-  together, so the impeller never becomes visible. Counting how many larger
-  boxes enclose a part fixes it — inner parts get a shell's worth of extra travel.
-- **scale, floor height and camera framing** so an imported model lands the
-  right way up at a sensible size whatever units it arrived in
-
-You answer two questions per row: *would a technician ever touch this*, and
-*what do they call it*. Then Export writes three files.
-
-### If your .glb will not load
-
-Real models in the wild are almost never plain glTF, and `GLTFLoader` refuses
-compressed ones with an error that reads like your file is broken when it is
-not. All three common cases are wired up:
-
-| Symptom | What it is | Handled |
-|---|---|---|
-| `setMeshoptDecoder must be called…` | Ran through `gltfpack`, or downloaded from Sketchfab | ✅ meshopt decoder is bundled |
-| `no DRACOLoader instance provided` | Draco compressed, common out of Blender | ✅ decoder served from `public/decoders/draco/` |
-| `no KTX2Loader instance provided` | KTX2 / Basis textures | ✅ transcoder served from `public/decoders/basis/` |
-| `Failed to load buffer "scene.bin"` | A `.gltf` with its data in a sibling file | Select the `.gltf` **and** its `.bin` and textures together — the studio takes multiple files |
-
-The decoders are vendored into `public/decoders/` rather than pulled from a
-CDN, deliberately: the one network you will run this on is a venue wifi that
-blocks `gstatic.com`.
-
-Two sample models are checked in — `pump.glb` (single-file binary) and
-`valve.gltf` (embedded buffers) — and `tools/` regenerates both if you want to
-change them.
-
-### Proof: the third machine
-
-`frontend/src/machines/pump.ts` is **generated output, checked in unedited**.
-It came from dropping `public/models/pump.glb` into the studio, unticking three
-structural nodes, and clicking Export. 19 meshes in, 16 serviceable parts out.
-
-Everything works on it identically — focus, highlight, explode, and the pointer
-loop resolving a hover three levels deep in someone else's scene graph back to
-`pump_casing`.
-
-What the studio could *not* generate is `backend/data/pump/parts.json` and
-`procedures.json` — the torque figures, the safety notes, the order in which a
-good technician actually checks things. That took about twenty minutes to write
-by hand, and that is the honest measure of what onboarding a machine costs:
-**the geometry is free, the knowledge is the work.** Which is the right answer,
-because the knowledge is also the thing worth owning.
-
-### Adding a machine by hand
-
-Three files, no engine changes:
-
-```
-frontend/src/machines/<id>.ts      geometry: primitives, or glbUrl + meshName per part
-backend/data/<id>/parts.json       specs, torque, safety, price, stock
-backend/data/<id>/procedures.json  symptom → ordered steps
-```
-
-Register it in `frontend/src/machines/index.ts` and drop the folder in
-`backend/data/`. The backend picks it up on boot. The agent discovers the part
-ids at runtime from `switch_machine` — its prompt never names a single part.
-
----
-
-## What's built
-
-| | |
+### Browser Scene Tools (`frontend/src/clientTools.ts`)
+| Tool | Description |
 |---|---|
-| `frontend/src/machines/` | Three machines as data. Printer: 13 parts. MRI: 18 parts, seven concentric shells that telescope apart. Pump: 16 parts, generated from a GLB. |
-| `frontend/src/components/MachineModel.tsx` | Every part its own mesh — movable, glowable, hoverable. Non-highlighted parts dim so the subject pops on a projector. |
-| `frontend/src/components/Scene.tsx` | Camera rig that flies to the focused part. Lighting is **local** (Lightformers, not an HDR preset) so nothing downloads on venue wifi. |
-| `frontend/src/clientTools.ts` | All 8 client tools, machine-aware, plus `window.__th` to drive the scene from the console. |
-| `frontend/src/label/` | The labelling studio at `#label`. Turns a `.glb` into a working machine. |
-| `backend/main.py` | The whole agent loop: Vaani STT → vaani-105b-conversations with 14 tools → Bulbul TTS, plus the machine-scoped server tools (4 original + 2 Anakin web tools). |
-| `backend/data/` | 47 parts with real torque figures and safety notes. 13 full procedures. |
-| `AGENT_SETUP.md` | The original prompt and tool schemas, paste-ready. *(Reference — the prompt now lives in `backend/main.py`.)* |
-| `VAANI_SETUP.md` | Keys, first calls, smoke tests — the paste-ready Vaani + Anakin walk-through. |
-
-**Zero asset dependencies on the demo path.** The printer and scanner are built from primitives. No GLB to
-download, no draco decoder, no CORS, no "the model didn't load" five minutes
-before you go on. The pump proves the GLB path works when
-you want it; it is the only machine that loads a file.
+| `switch_machine` | Hot-swaps the active 3D model (`printer`, `mri`, `pump`). |
+| `set_explode` | Linearly drives the exploded view slider ($0.0 \to 1.0$). |
+| `focus_part` | Animates the camera to zoom and frame a target component. |
+| `highlight_part` | Applies an accent glow and callout billboard to a component while dimming others. |
+| `clear_scene` | Resets camera position, highlights, and collapse state. |
+| `get_user_pointer` | Identifies which part the technician is hovering or pointing at. |
+| `get_view_state` | Returns active camera coordinates, focused part, and explode level. |
 
 ---
 
-## Run it
+## Live Web & Parts Pricing (Anakin.io)
+
+Third Hand does not rely solely on static internal catalogues. When a technician asks:
+> *"What does a replacement nozzle actually cost right now?"*
+
+1. The agent executes `search_web` via the Anakin.io search API.
+2. The search query retrieves live snippets, vendor titles, and retail URLs.
+3. The UI automatically displays **Live Web Source Cards** with domain badges and extracted price pills.
+4. If deeper analysis is required, the agent calls `read_page` to crawl technical specifications from external documentation.
+
+---
+
+## Quickstart & Setup
+
+### Prerequisites
+
+| Dependency | Minimum Version | Notes |
+|---|---|---|
+| **Python** | 3.11+ | Python 3.12 recommended |
+| **Node.js** | 18+ | Node 20 or 24 recommended (includes npm) |
+| **Google Chrome** | Latest | Required for WebRTC and microphone permissions |
+| **ngrok** | Latest | Free account required to expose local port 8765 |
+| **Vaani Account** | Active with credits | [platform.vaani.dev](https://platform.vaani.dev) (API Keys page) |
+| **Anakin.io Key** | Active account | [anakin.io](https://anakin.io) (Optional: for live search/prices) |
+
+---
+
+### Step 1: Backend Setup
+
+Open a terminal in the `backend/` directory:
 
 ```bash
-# terminal 1
 cd backend
-python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env          # put VAANI_API_KEY + ANAKIN_API_KEY in
-uvicorn main:app --reload --port 8000
 
-# terminal 2
+# Create and activate virtual environment
+python3 -m venv .venv
+source .venv/bin/activate       # On Windows PowerShell: .\.venv\Scripts\Activate.ps1
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Create your environment configuration
+cp .env.example .env
+```
+
+Open `backend/.env` and supply your credentials:
+```env
+VAANI_API_KEY=vaani_your_key_here
+ANAKIN_API_KEY=ak_your_key_here
+TOOL_SECRET=your_custom_secret_key_here
+TEACHER_KEY=your_teacher_dashboard_password
+VAANI_AGENT_ID=
+```
+
+---
+
+### Step 2: Frontend Setup
+
+Open a second terminal in the `frontend/` directory:
+
+```bash
 cd frontend
 npm install
-npm run dev                   # http://localhost:5173
 ```
 
-Then run `python test_vaani.py` and `python test_anakin.py` — five ✅ lines
-means every sponsor API is live. Full walk-through in `VAANI_SETUP.md`. The
-agent's prompt and tool schemas are configured **in code** now
-(`backend/main.py`); there is no dashboard step and no ngrok.
+---
 
-### Drive the scene without the agent
+### Step 3: Run the Application
 
-Open the console at `localhost:5173`:
+You will run three lightweight processes simultaneously:
 
-```js
+#### Terminal 1 — Backend (Port 8765)
+```bash
+cd backend
+source .venv/bin/activate
+python -m uvicorn main:app --port 8765
+```
+*Verify health check:* Visit [http://localhost:8765/api/health](http://localhost:8765/api/health) — should return `"ok": true`.
+
+#### Terminal 2 — Frontend (Port 5173)
+```bash
+cd frontend
+npm run dev
+```
+*Access Web App:* Open [http://localhost:5173](http://localhost:5173) in Google Chrome.
+
+#### Terminal 3 — Tunnel (ngrok)
+```bash
+ngrok http 8765
+```
+Copy the public forwarding address printed in your terminal (e.g., `https://abc-123.ngrok-free.dev`).
+
+---
+
+### Step 4: Register the Vaani Voice Agent (One-Time Command)
+
+In your `backend` terminal (with `.venv` active), run the provisioning script using your ngrok URL:
+
+```bash
+python setup_vaani_agent.py --base-url https://YOUR-NGROK-URL
+```
+
+This single command:
+1. Provisions the "Third Hand" voice agent in your Vaani account.
+2. Synchronizes system prompts, greetings, and all 16 webhooks pointing to your ngrok tunnel with your `TOOL_SECRET`.
+3. Writes the resulting `VAANI_AGENT_ID` directly into `backend/.env`.
+
+**Restart the backend** (Ctrl+C in Terminal 1, then restart `uvicorn`) so it loads the new `VAANI_AGENT_ID`.
+
+> **Note:** If your free ngrok URL changes after a restart, update the agent anytime with:
+> ```bash
+> python setup_vaani_agent.py --base-url https://NEW-NGROK-URL --update
+> ```
+
+---
+
+## Environment Variables
+
+All secrets remain server-side in `backend/.env` and are never exposed to the browser client:
+
+| Variable | Required | Description | Example |
+|---|---|---|---|
+| `VAANI_API_KEY` | **Yes** | Your master API key from [platform.vaani.dev](https://platform.vaani.dev). | `vaani_abcdef123...` |
+| `VAANI_AGENT_ID` | **Yes** | Populated automatically by `setup_vaani_agent.py`. | `agt_987654321...` |
+| `ANAKIN_API_KEY` | Optional | API key for live web search and product price cards. | `ak_123456789...` |
+| `TOOL_SECRET` | **Yes** | Shared authentication secret sent in the `X-Tool-Secret` header. | `random_hex_string` |
+| `TEACHER_KEY` | **Yes** | Passcode required to unlock the Teacher Analytics View (`#teacher`). | `instructor_pass` |
+
+---
+
+## Interactive Scene Driving via Console (`window.__th`)
+
+You can test and manipulate the 3D scene directly from the browser developer console without speaking:
+
+```javascript
+// Switch machines
 __th.switch_machine({ machine: 'mri' })
-__th.set_explode({ level: 0.8 })
-__th.focus_part({ part_id: 'gradient_coil', zoom: 0.7 })
-__th.highlight_part({ part_id: 'chiller', label: 'start here: filter' })
+
+// Drive the explode animation (0.0 to 1.0)
+__th.set_explode({ level: 0.75 })
+
+// Fly camera to a specific part
+__th.focus_part({ part_id: 'gradient_coil', zoom: 0.8 })
+
+// Highlight with custom label
+__th.highlight_part({ part_id: 'chiller', label: 'Check fluid level' })
+
+// Query current view coordinates and focused part
 __th.get_view_state()
+
+// Reset the scene back to normal
+__th.clear_scene()
 ```
 
-This is how you tune the visuals for free.
+---
+
+## Adding New Machines
+
+Third Hand is designed with zero hardcoding in the core engine. To introduce a new machine:
+
+1. **Geometry definition:** Add `frontend/src/machines/<machine_id>.ts` (specifying Three.js primitives or referencing a `.glb` asset from `/public/models/`).
+2. **Parts catalogue:** Add `backend/data/<machine_id>/parts.json` (part IDs, torque values, safety advisories, stock status).
+3. **Procedures guide:** Add `backend/data/<machine_id>/procedures.json` (symptom identifiers, ordered diagnostic steps, recommended tools).
+4. **Registration:** Export the new machine in `frontend/src/machines/index.ts`. The backend automatically indexes any directory in `backend/data/` on startup.
 
 ---
 
-## Prep checklist
+## Troubleshooting
 
-The order is deliberate — everything that needs a third party comes first.
-
-- [ ] **(10 min) Keys.** Vaani key from `vaani.dev/key-management`,
-      Anakin key from its dashboard, both into `backend/.env`.
-      `pip install -U vaaniai`.
-- [ ] **(15 min) First calls.** `python test_vaani.py` (3 ✅) and
-      `python test_anakin.py` (2 ✅). Sprint rule: real sponsor output printed
-      before any UI is built.
-- [ ] **(20 min) Frontend.** `npm install && npm run dev`. Check both machines
-      render and hovering a part turns it blue.
-- [ ] **(30 min) First end-to-end.** Click Start session, wait for the intro,
-      then say *"my extruder is clicking"*. Expect the agent to be too chatty
-      and to skip `set_explode` — that is a prompt problem, not a code problem.
-- [ ] **(30 min) Prompt tuning.** Where the demo is won or lost. The prompt
-      lives in `SYSTEM_PROMPT` in `backend/main.py` now — tighten until it
-      *always* does explode → focus → highlight → show_step → speak, in that
-      order, and *always* calls `get_user_pointer` on "this".
-- [ ] **(15 min) Record a backup video** of one clean run. If the venue wifi dies
-      you still have a demo.
-- [ ] Wired headset with a boom mic. Laptop mics pick up the room and the
-      voice detector will misfire without one.
+| Symptom | Cause | Solution |
+|---|---|---|
+| `402 Payment Required` on start session | Vaani account balance is ₹0 or exhausted. | Top up credits at [platform.vaani.dev](https://platform.vaani.dev). |
+| Microphone blocked error | Chrome blocked audio input. | Click the lock/tune icon in Chrome's URL bar, allow Microphone access, and reload. |
+| Tool calls fail with `401 Unauthorized` | `TOOL_SECRET` mismatch between backend and Vaani. | Check `TOOL_SECRET` in `backend/.env`, restart backend, and rerun `python setup_vaani_agent.py --base-url <url> --update`. |
+| `localhost:5173` loads but API calls fail | Backend is not listening on port **8765**. | Vite proxies `/api` to `http://localhost:8765`. Ensure uvicorn is running with `--port 8765`. |
+| Ngrok shows 404 or connection refused | Ngrok tunnel is pointing at the wrong local port. | Run `ngrok http 8765`. |
+| Live web price cards do not appear | `ANAKIN_API_KEY` is missing or invalid. | Verify your Anakin API key in `backend/.env`. Check `python test_anakin.py`. |
+| Agent speaks but 3D model does not move | Agent prompt skipped calling scene tools. | Ensure your spoken prompt describes a physical symptom (e.g. *"my extruder is clicking"*) rather than a generic greeting. |
 
 ---
 
-## The demo — 2 min 30
+## Repository Layout
 
-Stand *back* from the laptop with something in both hands. The moment the
-audience sees your hands are full, the pitch lands without you arguing for it.
-
-> **0:00** *(printer on screen, assembled)*
-> "Both my hands are inside this printer. I can't type. Watch."
-
-> **0:10** *"My extruder is clicking and there are gaps in the walls."*
-> — the tool feed lights up, the assembly explodes, the camera flies to the
-> extruder, it glows orange, step 1 lands on screen.
-> **Say nothing.** Three seconds of silence here beats any sentence you could say.
-
-> **0:35** "Done." → step 2, the PTFE tube. Label reads *"cut 10 mm off, square"*.
-
-> **0:55 — the moment.** Go off script. Hover the heatsink fan.
-> *"Hang on — what's this?"*
-> — it answers about the 40 mm fan and explains why a stalling one causes exactly
-> the clog they're chasing. Then, to the room: **"I never said the word fan."**
-
-> **1:25 — prove it's a system.** *"Switch to the MRI."*
-> The scanner loads. *"Helium is dropping faster than usual."* Seven shells
-> telescope apart, the cold head lights up, and the first thing it says is that
-> the magnet is always on. **"Same agent. Same seven tools. I changed a data
-> file."**
-
-> **1:55** *"Order a cold head."* → cart, order id, ETA, ₹18,00,000.
-
-> **2:05 — the live web.** *"Before I commit — what does a cold head actually
-> cost out there?"* → `search_web` fires, three source cards with real links
-> appear in the panel, and it answers with the price range and *where it came
-> from*. **"That's not my catalogue. That's the internet, right now."**
-
-> **2:15** *"That fixed it."* → `log_repair` → the service record writes itself.
-
-> **Optional +10 s — the languages.** *"हिंदी में बताओ — अगला कदम क्या है?"*
-> → it answers in spoken Hindi. One prompt line, zero translation layer. Skip
-> it if the room is running late.
-
-> **2:20** Close: "Every voice agent you'll see today is blind. This one shares
-> your screen — it can point at things, and it can see what *you're* pointing at.
-> That's the difference between a chatbot with a voice and a colleague."
-
-**Rehearsal notes.** Do the pointer moment off script — pick a different part each
-time so you know it isn't memorised. Never say a part's name before the agent
-does. If it stumbles, keep going; recovering gracefully reads as confidence.
-
----
-
-## Risks and what to do
-
-| Risk | Mitigation |
-|---|---|
-| **Venue wifi** | Tether to your phone. Nothing downloads assets. Backup video ready. |
-| **Anakin credits / rate limit** | 60 req/min, 300 free credits. The backend caches one search per query — don't fire it repeatedly on stage. |
-| **TTS latency (~1–2 s)** | Expected, and now hidden: replies stream sentence-by-sentence, so the first audio starts in ~1 s while the scene has already moved — the pipeline is visible, which reads as speed. |
-| **Agent skips scene tools** | Prompt problem. Tighten the ordering rules in `SYSTEM_PROMPT` (`backend/main.py`). Temperature stays at 0.2. |
-| **Agent uses printer ids on the MRI** | `switch_machine` returns the valid list. If it still slips, add the list to the first message. |
-| **Room noise cuts you off** | Wired headset with a boom mic. Not AirPods, not the laptop mic. The mic closes while the agent speaks, so it cannot hear itself — but a loud room can trip the voice detector. |
-| **A sponsor call fails live** | `search_web` failures degrade gracefully — the agent says so in one line and continues with `get_procedure`. Nothing on the demo path has a single point of failure. |
+```
+vaani-third-hand/
+├── backend/
+│   ├── data/                   # Parts manifests and repair procedures
+│   │   ├── mri/                # 1.5T MRI parts & procedure data
+│   │   ├── printer/            # Ender-3 3D printer parts & procedures
+│   │   └── pump/               # Centrifugal pump parts & procedures
+│   ├── .env.example            # Environment variable template
+│   ├── agent_template.json     # Vaani voice agent blueprint & 16 tool schemas
+│   ├── lab.py                  # Pelton lab logic, viva grading & store
+│   ├── main.py                 # FastAPI server, tool endpoints & WebRTC session
+│   ├── requirements.txt        # Python library dependencies
+│   ├── setup_vaani_agent.py    # Automated Vaani voice agent provisioning
+│   ├── test_anakin.py          # Anakin API connectivity smoke test
+│   └── test_vaani.py           # Vaani chat/STT/TTS connectivity smoke test
+│
+├── frontend/
+│   ├── public/
+│   │   ├── decoders/           # Offline Draco, Meshopt, and KTX2 decoders
+│   │   └── models/             # Binary GLB models (pump, rig assets)
+│   ├── src/
+│   │   ├── components/         # 3D Viewport, Camera Rig, Panel, Sidebar
+│   │   ├── label/              # 3D CAD Labelling Studio (accessible via #label)
+│   │   ├── lib/                # Panel splitters and utility helpers
+│   │   ├── machines/           # Machine definitions (printer, mri, pump)
+│   │   ├── pelton/             # Pelton Wheel Lab (Learn, Observe, Calc, Viva)
+│   │   │   ├── tabs/           # Lab tab views (CalcTab, VivaTab, ObserveTab...)
+│   │   │   ├── PeltonLab.tsx   # Master Pelton lab container
+│   │   │   ├── PeltonScene.tsx # 3D Pelton turbine scene with water dynamics
+│   │   │   └── store.ts        # Zustand lab telemetry & calculation state
+│   │   ├── clientTools.ts      # 8 browser-side 3D scene tools
+│   │   ├── TeacherView.tsx     # Instructor Viva results dashboard (#teacher)
+│   │   ├── voiceAgent.ts       # LiveKit WebRTC client & caption parser
+│   │   └── App.tsx             # Root application orchestrator
+│   ├── package.json            # Node.js dependencies and build scripts
+│   └── vite.config.ts          # Vite bundler configuration (proxies /api -> :8765)
+│
+├── AGENT_SETUP.md              # Detailed prompt and tool schema reference
+├── DEMO_SCRIPT.md              # 90-second synchronized presentation guide
+├── SETUP.md                    # Core developer setup checklist
+├── SUBMISSION_ANSWERS.md       # Technical submission questionnaire responses
+└── README.md                   # Project documentation
+```
 
 ---
 
-## Where this goes
+## License
 
-**Point a camera at the real thing.** Vaani Vision (Doc AI) reads photos and
-scans in 23 languages. Point a phone at the machine's rating plate or the
-service PDF and the agent reads the model number itself. That is the version
-people pay for.
-
-**Put it in AR.** Same agent, but the highlight lands on the real hardware instead
-of a model. The screen just gets closer to the thing you're fixing.
-
-**Put it on a phone line.** The same prompt and tools run on Vaani Voice
-Agents (`vaani.dev/samvaad`) with telephony built in. A field technician
-with no laptop calls a number and gets the same agent.
-
-**Make it multilingual.** Already wired: Saaras hears 22 languages, Bulbul
-speaks 11, and the prompt answers in the caller's language. A Tamil-speaking
-technician, an English service manual, no translation layer in between.
-
-**The data flywheel is the real moat.** Every session writes a structured record:
-symptom, root cause, steps, parts. Five hundred sessions tells you the PTFE tube
-is the actual culprit 40% of the time — which no PDF manual can. It also tells
-you where your manual is *wrong*: if technicians keep saying "that didn't work"
-at step 3, step 3 is bad.
-
-**And the generalisable bit:** "an agent that shares a canvas with a human and can
-ask what they're looking at" isn't about repair at all. It's CAD review,
-radiology, architectural walkthroughs, a shopping configurator, a data dashboard.
-The pointer loop is the reusable primitive — the machines are just the first
-things you hang it on.
+This project was built for the Vaani Voice AI Hackathon. Licensed under the MIT License.
