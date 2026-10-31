@@ -1,0 +1,89 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---- design tokens: space-separated RGB so Tailwind can apply alpha -------- */
+:root {
+  --bg: 246 245 241;
+  --surface: 255 255 255;
+  --surface-2: 241 240 235;
+  --border: 224 222 214;
+  --fg: 28 28 32;
+  --muted: 107 107 116;
+  --accent: 212 82 8;
+  --live: 21 128 61;
+  --speak: 3 105 161;
+  color-scheme: light;
+}
+.dark {
+  --bg: 10 12 17;
+  --surface: 17 20 27;
+  --surface-2: 24 28 37;
+  --border: 38 44 58;
+  --fg: 236 239 244;
+  --muted: 142 151 166;
+  --accent: 255 138 46;
+  --live: 52 211 107;
+  --speak: 90 195 250;
+  color-scheme: dark;
+}
+
+@layer base {
+  * { @apply border-border; }
+  html, body, #root { height: 100%; margin: 0; }
+  body {
+    @apply bg-bg font-sans text-fg antialiased;
+    overflow: hidden;
+    transition: background-color .25s ease, color .25s ease;
+  }
+  h1, h2, h3 { @apply font-serif; }
+  :focus-visible { @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-bg; }
+  ::selection { background: rgb(var(--accent) / .25); }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  }
+}
+
+/* Centered digits/glyphs in round badges: grid centres the line box exactly. */
+.num-badge {
+  display: inline-grid; place-items: center; line-height: 1;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* ---- thin scrollbars ------------------------------------------------------- */
+.scroll-thin { scrollbar-width: thin; scrollbar-color: rgb(var(--border)) transparent; }
+
+/* ---- callouts rendered inside the 3D canvas (theme aware) ------------------- */
+.callout {
+  position: relative; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap;
+  background: rgb(var(--surface)); color: rgb(var(--fg));
+  border: 1.5px solid rgb(var(--accent)); box-shadow: 0 6px 18px rgb(0 0 0 / .2);
+  font: 600 12px/1.25 Krub, system-ui, sans-serif; letter-spacing: .01em;
+  padding: 7px 14px 8px; border-radius: 999px;
+  margin-bottom: 14px; transform: translateY(-22px);
+  pointer-events: none;
+}
+/* small stem pointing at the part, so the label never floats loose */
+.callout::after {
+  content: ''; position: absolute; left: 50%; bottom: -9px; width: 2px; height: 8px;
+  transform: translateX(-50%); background: rgb(var(--accent)); border-radius: 2px;
+}
+.callout-dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+.loading { font: 500 12px Krub, system-ui, sans-serif; color: rgb(var(--muted)); }
+
+/* ---- Pelton lab: part labels pinned over the 3D rig ------------------------- */
+.rig-label {
+  position: absolute; left: 0; top: 0; margin: -11px 0 0 -11px;
+  display: flex; align-items: center; gap: 6px; padding: 2px 9px 2px 2px;
+  border-radius: 999px; border: 1px solid rgb(var(--border));
+  background: rgb(var(--surface) / .92); color: rgb(var(--fg));
+  box-shadow: 0 4px 14px -8px rgb(0 0 0 / .35); backdrop-filter: blur(6px);
+  font: 500 11px/1 Krub, system-ui, sans-serif; white-space: nowrap;
+  pointer-events: auto; cursor: pointer; transition: box-shadow .15s ease;
+}
+.rig-label:hover { box-shadow: 0 0 0 3px rgb(var(--accent) / .3); }
+.rig-label.is-selected { border-color: rgb(var(--speak)); box-shadow: 0 0 0 3px rgb(var(--speak) / .4); }
+.rig-badge {
+  display: inline-grid; place-items: center; width: 19px; height: 19px; border-radius: 999px;
+  background: rgb(var(--accent)); color: #fff; font-size: 10px; font-weight: 600; line-height: 1;
+}
