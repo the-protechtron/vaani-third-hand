@@ -127,6 +127,16 @@ export function useVoiceAgent() {
     useScene.getState().reset()
     lastSeq.current = null
 
+    if (mode === 'repair') {
+      const selected = useScene.getState().machine.id
+      const synced = await fetch('/api/machine', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ machine: selected }),
+      })
+      if (!synced.ok) throw new Error(`Could not select ${selected} (${synced.status})`)
+    }
+
     if (mode === 'viva') {
       // permission now (inside the click); the mic itself is turned on after the kickoff line
       const probe = await navigator.mediaDevices.getUserMedia({ audio: true })
@@ -259,9 +269,6 @@ export function useVoiceAgent() {
             lastSeq.current = sc.seq
             applyScene(sc)
           }
-        }
-        if (st.machine && st.machine !== useScene.getState().machine.id) {
-          clientTools.switch_machine({ machine: st.machine })
         }
       } catch { /* backend blip */ }
     }, 1200)

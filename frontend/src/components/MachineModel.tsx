@@ -54,6 +54,8 @@ function Geometry({ p }: { p: PartDef }) {
       return <coneGeometry args={[s[0], s[1], s[2]]} />
     case 'torus':
       return <torusGeometry args={[s[0], s[1], 12, s[2]]} />
+    case 'sphere':
+      return <sphereGeometry args={[1, 24, 16]} />
     default:
       return <boxGeometry args={s} />
   }
@@ -95,6 +97,7 @@ function PrimitivePart({ p }: { p: PartDef }) {
       ref={ref}
       position={p.pos ?? [0, 0, 0]}
       rotation={p.rot ?? [0, 0, 0]}
+      scale={p.kind === 'sphere' ? p.size : undefined}
       castShadow={!transparent}
       receiveShadow
       onPointerOver={(e) => {

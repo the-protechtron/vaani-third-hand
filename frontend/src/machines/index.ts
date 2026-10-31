@@ -2,9 +2,10 @@ import type { Machine } from './types'
 import { printer } from './printer'
 import { mri } from './mri'
 import { pump } from './pump'
+import { scooter } from './scooter'
 
 export * from './types'
-export { printer, mri, pump }
+export { printer, mri, pump, scooter }
 
 /**
  * Every machine the app knows about.
@@ -13,7 +14,7 @@ export { printer, mri, pump }
  * by dropping a .glb into the labelling studio at #label - that file is
  * generated output, checked in unedited, which is the point.
  */
-export const MACHINES: Record<string, Machine> = { printer, mri, pump }
+export const MACHINES: Record<string, Machine> = { printer, mri, pump, scooter }
 export const MACHINE_IDS = Object.keys(MACHINES)
 export const DEFAULT_MACHINE = 'printer'
 
@@ -28,5 +29,6 @@ export function resolveMachineId(raw: string): string | null {
   if (/mri|scanner|magnet|gantry/.test(k)) return 'mri'
   if (/print|ender|fdm/.test(k)) return 'printer'
   if (/pump|impeller|centrifugal|motor/.test(k)) return 'pump'
+  if (/scooter|bike|motorcycle|two.?wheeler|activa/.test(k)) return 'scooter'
   return MACHINE_IDS.find((id) => k.includes(id)) ?? null
 }

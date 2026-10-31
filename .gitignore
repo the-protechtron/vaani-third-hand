@@ -5,6 +5,7 @@ dist/
 .vite/
 *.log
 *.bak
+*.tsbuildinfo
 
 # secrets and learner data stay on your machine
 backend/.env

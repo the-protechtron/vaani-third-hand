@@ -53,6 +53,7 @@ MACHINE_NAMES = {
     "printer": "Ender-3 class FDM printer",
     "mri": "1.5T Superconducting MRI",
     "pump": "End-Suction Centrifugal Pump",
+    "scooter": "110 cc Commuter Scooter (DIY-safe checks)",
 }
 
 MACHINES: Dict[str, Dict[str, Any]] = {}
@@ -702,7 +703,7 @@ _PRICE_RE = re.compile(r"(?:₹|Rs\.?|INR)\s?\d[\d,]*(?:\.\d+)?|\$\s?\d[\d,]*(?:
 
 
 # one short hint per machine, so "nozzle" means a 3D-printer nozzle and not a whole printer
-_MACHINE_HINT = {"printer": "Ender 3", "pump": "centrifugal pump", "mri": "MRI scanner"}
+_MACHINE_HINT = {"printer": "Ender 3", "pump": "centrifugal pump", "mri": "MRI scanner", "scooter": "110cc scooter"}
 
 
 def _part_words(name: str) -> List[str]:

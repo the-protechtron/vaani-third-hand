@@ -19,7 +19,7 @@
  */
 
 import { useScene } from './store'
-import { partById, resolvePartId, resolveMachineId, selectableParts, getMachine } from './machines'
+import { MACHINE_IDS, partById, resolvePartId, resolveMachineId, selectableParts, getMachine } from './machines'
 
 const say = (text: string) =>
   useScene.getState().push({ role: 'tool', text, ts: Date.now() })
@@ -52,7 +52,7 @@ export const clientTools = {
    */
   switch_machine: ({ machine }: { machine: string }): string => {
     const id = resolveMachineId(machine)
-    if (!id) return `No machine called ${machine}. Available: printer, mri.`
+    if (!id) return `No machine called ${machine}. Available: ${MACHINE_IDS.join(', ')}.`
     const m = getMachine(id)
     useScene.getState().setMachine(id)
     void syncMachineToBackend(id)

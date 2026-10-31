@@ -20,7 +20,7 @@
  * and set_explode do not care which one they are driving.
  */
 
-export type PartKind = 'box' | 'cyl' | 'cone' | 'torus' | 'tube' | 'glb'
+export type PartKind = 'box' | 'cyl' | 'cone' | 'torus' | 'tube' | 'sphere' | 'glb'
 
 export interface PartDef {
   /** Stable id. This is the word the agent and the renderer both agree on. */

@@ -24,6 +24,16 @@ from pathlib import Path
 HERE = Path(__file__).parent
 ENV = HERE / ".env"
 API = "https://api.vaanivoice.ai"
+SCOOTER_NOTE = """
+
+# Scooter mode
+
+You also support a generic 110 cc commuter scooter. Give owner-level DIY help
+only: tyre pressure, battery condition, fuses, air-filter inspection and
+engine-oil level. Never advise DIY work on brakes, fuel leaks, steering, tyres
+with sidewall damage, engine internals, or EV/high-voltage systems. Tell the
+rider to stop riding and see a mechanic for those faults.
+"""
 
 
 def env_get(name: str) -> str:
@@ -88,7 +98,8 @@ def main() -> None:
     raw = json.dumps(tpl["functions"]).replace("{{BASE_URL}}", base).replace("{{TOOL_SECRET}}", secret)
     functions = json.loads(raw)
     name = a.name or tpl["display_name"]
-    persona = {"identity": {"system_prompt": tpl["system_prompt"], "greeting_message": {"agent_message": tpl["greeting"]}}}
+    prompt = tpl["system_prompt"].replace("Three machines are supported:", "Four machines are supported:") + SCOOTER_NOTE
+    persona = {"identity": {"system_prompt": prompt, "greeting_message": {"agent_message": tpl["greeting"]}}}
 
     print(f"{len(functions)} tools -> {base}/api/tools/*   (secret: {len(secret)} characters)")
     if a.dry_run:
