@@ -1,0 +1,11 @@
+node_modules/
+.venv/
+__pycache__/
+dist/
+.vite/
+*.log
+*.bak
+
+# secrets and learner data stay on your machine
+backend/.env
+backend/data/lab_store*.json
