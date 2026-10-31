@@ -66,7 +66,7 @@ function ExplodeControl() {
 
 export default function App() {
   const machine = useScene((s) => s.machine)
-  const { status, sources, handoff, beginSession, endSession } = useVoiceAgent()
+  const { status, sources, handoff, beginSession, endSession, generateSummary } = useVoiceAgent()
   const [sessionOn, setSessionOn] = useState(false)
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -300,7 +300,7 @@ export default function App() {
         </section>
 
         <Splitter side="right" width={right.w} onChange={right.set} onReset={right.reset} min={right.min} max={right.max} label="Resize the conversation panel" />
-        <Panel sources={sources} handoff={handoff} status={status} sessionOn={sessionOn} />
+        <Panel sources={sources} handoff={handoff} status={status} sessionOn={sessionOn} onGenerateSummary={generateSummary} />
       </main>
       </>
       )}

@@ -1,4 +1,4 @@
-"""Technician handoff from a live voice conversation."""
+"""Technician handoff and session summary from a live voice conversation."""
 import os
 
 import httpx
@@ -15,36 +15,56 @@ class Line(BaseModel):
 
 class HandoffIn(BaseModel):
     machine: str = Field(max_length=40)
-    conversation: list[Line] = Field(min_length=2, max_length=60)
+    conversation: list[Line] = Field(min_length=1, max_length=100)
 
 
 @router.post('/api/handoff')
 async def handoff(body: HandoffIn):
     lines = [f'{line.role}: {line.text.strip()}' for line in body.conversation
              if line.role in ('user', 'agent') and line.text.strip()]
-    if not any(line.startswith('user:') for line in lines) or not any(line.startswith('agent:') for line in lines):
-        raise HTTPException(400, 'A user symptom and agent response are required')
+    if not any(line.startswith('user:') for line in lines):
+        raise HTTPException(400, 'A user message is required to generate a summary')
+
     key = os.getenv('GROQ_API_KEY', '')
     if not key:
         symptoms = [line.text.strip() for line in body.conversation if line.role == 'user' and line.text.strip()]
         findings = [line.text.strip() for line in body.conversation if line.role == 'agent' and line.text.strip()]
-        return {'summary': (f'Vehicle: {body.machine}\nReported symptoms: ' + '; '.join(symptoms[-4:]) +
-                            '\nAgent guidance (not confirmed as completed): ' + '; '.join(findings[-4:]) +
-                            '\nStatus: Professional inspection recommended. Confirm the reported symptoms and checks before repair.')}
+        return {
+            'summary': (
+                f'Equipment: {body.machine.title()}\n\n'
+                f'Reported Symptoms:\n- ' + ('\n- '.join(symptoms[-4:]) if symptoms else 'General inquiry') + '\n\n'
+                f'Checks and Findings:\n- ' + ('\n- '.join(findings[-4:]) if findings else 'Initial troubleshooting guidance given') + '\n\n'
+                'Status: Session completed. Confirm reported symptoms and safety checks before proceeding.'
+            )
+        }
+
     try:
         async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.post('https://api.groq.com/openai/v1/chat/completions',
+            response = await client.post(
+                'https://api.groq.com/openai/v1/chat/completions',
                 headers={'Authorization': f'Bearer {key}'},
-                json={'model': 'openai/gpt-oss-120b', 'temperature': 0.1, 'max_tokens': 400,
-                      'messages': [
-                          {'role': 'system', 'content': (
-                              'Write a concise technician handoff in plain text. Use headings: Vehicle, Reported symptoms, '
-                              'Checks and findings, Safety concern, Recommended next inspection. Use accurate technical '
-                              'terms only where supported by the conversation. Distinguish observed facts from suspected '
-                              'causes. Never invent measurements, tests, part compatibility, or repairs completed. '
-                              'Do not advise the rider to perform unsafe repairs.')},
-                          {'role': 'user', 'content': f'Machine: {body.machine}\nConversation:\n' + '\n'.join(lines)},
-                      ]})
+                json={
+                    'model': 'openai/gpt-oss-120b',
+                    'temperature': 0.1,
+                    'max_tokens': 450,
+                    'messages': [
+                        {
+                            'role': 'system',
+                            'content': (
+                                'Write a concise, professional technical summary and diagnostic handoff in plain text. '
+                                'Use clear headings: Equipment, Reported Symptoms, Checks and Findings, Safety Advisories, Recommended Next Actions. '
+                                'Use accurate technical terminology supported by the conversation. Distinguish observed facts from suspected causes. '
+                                'Never invent measurements, test readings, part compatibility, or repairs completed that were not discussed. '
+                                'Keep it crisp, actionable, and suitable for a senior technician or maintenance record.'
+                            ),
+                        },
+                        {
+                            'role': 'user',
+                            'content': f'Machine: {body.machine}\nConversation:\n' + '\n'.join(lines),
+                        },
+                    ],
+                },
+            )
         response.raise_for_status()
         summary = response.json()['choices'][0]['message']['content'].strip()
         if not summary:

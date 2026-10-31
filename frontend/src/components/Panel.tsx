@@ -53,11 +53,13 @@ export function Panel({
   handoff,
   status = 'idle',
   sessionOn = false,
+  onGenerateSummary,
 }: {
   sources?: WebSource[]
   handoff?: Handoff | null
   status?: 'idle' | 'listening' | 'thinking' | 'speaking'
   sessionOn?: boolean
+  onGenerateSummary?: () => void
 }) {
   const s = useSession((x) => x.data)
   const fullTranscript = useScene((x) => x.transcript)
@@ -103,13 +105,24 @@ export function Panel({
       </div>
 
       <div className={cn('scroll-thin flex min-h-0 flex-col gap-3 overflow-y-auto pr-0.5', hasCards ? 'max-h-[42%]' : 'hidden')}>
-        {handoff && <Card title="Technician handoff">
-          {handoff.state === 'loading' && <p className="text-sm text-muted">Preparing the handoff…</p>}
-          {handoff.state === 'error' && <p role="alert" className="text-sm text-muted">{handoff.error}</p>}
+        {handoff && <Card title="Session summary & handoff">
+          {handoff.state === 'loading' && (
+            <div className="flex items-center gap-2 py-2 text-sm text-muted">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+              <span>Generating technical summary with Groq…</span>
+            </div>
+          )}
+          {handoff.state === 'error' && <p role="alert" className="text-sm text-red-500">{handoff.error}</p>}
           {handoff.state === 'ready' && <>
             <p className="whitespace-pre-wrap text-[13px] leading-relaxed">{handoff.summary}</p>
-            <button className="mt-3 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-surface-2"
-              onClick={() => void navigator.clipboard.writeText(handoff.summary ?? '')}>Copy for technician</button>
+            <div className="mt-3 flex items-center gap-2">
+              <button className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-surface-2"
+                onClick={() => void navigator.clipboard.writeText(handoff.summary ?? '')}>Copy summary</button>
+              {onGenerateSummary && (
+                <button className="rounded-lg border border-border/70 bg-surface-2/60 px-2.5 py-1.5 text-xs text-muted hover:text-fg"
+                  onClick={onGenerateSummary}>Re-generate</button>
+              )}
+            </div>
           </>}
         </Card>}
         {s && s.cart.length > 0 && (
@@ -217,7 +230,20 @@ export function Panel({
               {barsState === 'off' ? 'Conversation' : barsState === 'speaking' ? 'Agent speaking' : barsState === 'thinking' ? 'Thinking' : 'Listening'}
             </span>
           </div>
-          {transcript.length > 0 && <span className="text-[11px] text-muted">{transcript.length} messages</span>}
+          <div className="flex items-center gap-2">
+            {transcript.some((l) => l.role === 'user') && onGenerateSummary && (
+              <button
+                type="button"
+                onClick={onGenerateSummary}
+                disabled={handoff?.state === 'loading'}
+                className="flex items-center gap-1 rounded-lg border border-accent/40 bg-accent/10 px-2 py-0.5 text-[11px] font-semibold text-accent transition-colors hover:bg-accent/20 disabled:opacity-50"
+                title="Generate technical summary of this conversation with Groq"
+              >
+                {handoff?.state === 'loading' ? 'Summarizing…' : 'Summary'}
+              </button>
+            )}
+            {transcript.length > 0 && <span className="text-[11px] text-muted">{transcript.length} messages</span>}
+          </div>
         </div>
         <div className="scroll-thin flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto p-3.5" aria-live="polite">
           {transcript.slice(-40).map((l, i) =>
@@ -252,6 +278,31 @@ export function Panel({
                   transition={{ duration: 0.9, repeat: Infinity, delay: i * 0.15 }}
                 />
               ))}
+            </div>
+          )}
+          {transcript.some((l) => l.role === 'user') && onGenerateSummary && (
+            <div className="mt-2.5 flex flex-col items-center gap-1.5 border-t border-dashed border-border/80 pt-3">
+              <button
+                type="button"
+                onClick={onGenerateSummary}
+                disabled={handoff?.state === 'loading'}
+                className="flex items-center gap-2 rounded-xl border border-accent/40 bg-accent/10 px-4 py-2 text-[12.5px] font-semibold text-accent shadow-sm transition-all hover:border-accent hover:bg-accent/20 active:scale-[0.98] disabled:opacity-50"
+              >
+                {handoff?.state === 'loading' ? (
+                  <>
+                    <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                    <span>Generating summary with Groq…</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span>Generate conversation summary</span>
+                  </>
+                )}
+              </button>
+              <span className="text-[10.5px] text-muted">Creates a diagnostic briefing & technician handoff</span>
             </div>
           )}
           <div ref={endRef} />

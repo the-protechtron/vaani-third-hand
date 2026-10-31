@@ -301,5 +301,31 @@ export function useVoiceAgent() {
     setSources([])
   }, [teardown])
 
-  return { status, sources, handoff, beginSession, endSession }
+  const generateSummary = useCallback(async () => {
+    const machine = useScene.getState().machine.id
+    const conversation = useScene.getState().transcript
+      .filter((line) => line.role !== 'tool' && line.text.trim())
+      .map(({ role, text }) => ({ role, text }))
+    if (!conversation.some((line) => line.role === 'user')) {
+      setHandoff({ state: 'error', error: 'No user messages to summarize yet.' })
+      return
+    }
+    setHandoff({ state: 'loading' })
+    try {
+      const r = await fetch('/api/handoff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ machine, conversation }),
+      })
+      if (!r.ok) {
+        throw new Error(r.status === 503 ? 'Add a Groq API key to enable handoffs.' : `Request failed (${r.status}).`)
+      }
+      const result = await r.json()
+      setHandoff({ state: 'ready', summary: result.summary })
+    } catch (error: any) {
+      setHandoff({ state: 'error', error: String(error?.message ?? error) })
+    }
+  }, [])
+
+  return { status, sources, handoff, beginSession, endSession, generateSummary }
 }
