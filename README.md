@@ -9,7 +9,7 @@
 [![React 18](https://img.shields.io/badge/React-18.3-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
 [![Three.js / R3F](https://img.shields.io/badge/Three.js-R3F-black?style=flat-square&logo=three.js&logoColor=white)](https://threejs.org)
 [![LiveKit](https://img.shields.io/badge/LiveKit-WebRTC-blue?style=flat-square)](https://livekit.io)
-[![Vaani Voice AI](https://img.shields.io/badge/Voice%20AI-Vaani%20Indus-FF6B00?style=flat-square)](https://vaani.dev)
+[![Vaani Voice AI](https://img.shields.io/badge/Voice%20AI-Vaani%20?style=flat-square)](https://vaani.dev)
 [![Anakin.io](https://img.shields.io/badge/Live%20Web-Anakin.io-8A2BE2?style=flat-square)](https://anakin.io)
 
 ---
